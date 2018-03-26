@@ -9,16 +9,12 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
-import unittest
-
 import six
 
 from django.conf import settings
 from django.test.utils import override_settings
 
 from horizon import exceptions
-
 from openstack_dashboard import api
 from openstack_dashboard.test import helpers as test
 
@@ -182,7 +178,6 @@ class HeatApiTests(test.APITestCase):
         template = api.heat.template_get(self.request, stack_id)
         self.assertEqual(mock_data_template.data, template.data)
 
-    @unittest.skip("WRS skip due to heatclient changes")
     def test_stack_create(self):
         api_stacks = self.stacks.list()
         stack = api_stacks[0]
