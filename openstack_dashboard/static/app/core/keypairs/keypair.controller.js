@@ -26,7 +26,8 @@
     'horizon.app.core.openstack-service-api.nova',
     'horizon.framework.widgets.modal-wait-spinner.service',
     '$window',
-    '$uibModal'
+    '$uibModal',
+    '$http'
   ];
 
   /**
@@ -43,11 +44,15 @@
     nova,
     spinnerService,
     $window,
-    $uibModal
+    $uibModal,
+    $http
   ) {
     var ctrl = this;
 
     ctrl.createKeyPair = createKeyPair;
+
+    // WRS: set X-CSRFToken for post request in case CSRF_COOKIE_HTTPONLY is enabled
+    $http.defaults.headers.post['X-CSRFToken'] = $('input[name=csrfmiddlewaretoken]').val();
 
     //////////
 

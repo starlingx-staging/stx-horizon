@@ -131,6 +131,8 @@ class StackResourcesTab(tabs.Tab):
         try:
             stack_identifier = '%s/%s' % (stack.stack_name, stack.id)
             resources = api.heat.resources_list(self.request, stack_identifier)
+            resources = sorted(resources,
+                               key=lambda rsc: rsc.updated_time)
             LOG.debug('got resources %s', resources)
             # The stack id is needed to generate the resource URL.
             for r in resources:

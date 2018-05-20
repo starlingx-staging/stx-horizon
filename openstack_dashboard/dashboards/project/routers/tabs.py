@@ -11,6 +11,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2013-2017 Wind River Systems, Inc.
+#
+
 
 from django.utils.translation import ugettext_lazy as _
 
@@ -19,6 +23,8 @@ from horizon import tabs
 from openstack_dashboard import api
 from openstack_dashboard.dashboards.project.routers.extensions.extraroutes\
     import tabs as er_tabs
+from openstack_dashboard.dashboards.project.routers.portforwardings\
+    import tables as pftbl
 from openstack_dashboard.dashboards.project.routers.ports import tables as ptbl
 
 
@@ -44,7 +50,21 @@ class InterfacesTab(tabs.TableTab):
         return self.tab_group.kwargs['ports']
 
 
+class PortForwardingTab(tabs.TableTab):
+    table_classes = (pftbl.PortForwardingRulesTable,)
+    name = _("Port Forwarding")
+    slug = "portforwardings"
+    template_name = "horizon/common/_detail_table.html"
+
+    def get_portforwardings_data(self):
+        return self.tab_group.kwargs['portforwardings']
+
+    def allowed(self, request):
+        return api.base.is_TiS_region(request)
+
+
 class RouterDetailTabs(tabs.DetailTabsGroup):
     slug = "router_details"
-    tabs = (OverviewTab, InterfacesTab, er_tabs.ExtraRoutesTab)
+    tabs = (OverviewTab, InterfacesTab, PortForwardingTab,
+            er_tabs.ExtraRoutesTab)
     sticky = True

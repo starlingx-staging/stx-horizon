@@ -66,7 +66,16 @@ class PasswordForm(forms.SelfHandlingForm):
                                                       data['current_password'],
                                                       data['new_password'])
                 response = http.HttpResponseRedirect(settings.LOGOUT_URL)
-                msg = _("Password changed. Please log in again to continue.")
+                username = str(request.user)
+                if username == "admin":
+                    msg = _("Warning: %s password changed. Please wait 5 "
+                            "minutes then log in and Lock/Unlock the "
+                            "controllers for the password change to come "
+                            "into effect") % (username)
+                else:
+                    msg = _("Password changed. "
+                            "Please log in again to continue.")
+
                 utils.add_logout_reason(request, response, msg)
                 return response
             except Exception:

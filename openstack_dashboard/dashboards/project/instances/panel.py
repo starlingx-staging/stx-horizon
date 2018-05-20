@@ -21,3 +21,15 @@ class Instances(horizon.Panel):
     name = _("Instances")
     slug = 'instances'
     permissions = ('openstack.services.compute',)
+
+    def allowed(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return super(Instances, self).allowed(context)
+
+    def nav(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return True

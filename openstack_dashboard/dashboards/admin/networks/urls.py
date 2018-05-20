@@ -11,6 +11,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2013-2015 Wind River Systems, Inc.
+#
 
 from django.conf.urls import include
 from django.conf.urls import url
@@ -21,6 +24,8 @@ from openstack_dashboard.dashboards.admin.networks.ports \
     import urls as port_urls
 from openstack_dashboard.dashboards.admin.networks.ports \
     import views as port_views
+from openstack_dashboard.dashboards.admin.networks.qos \
+    import urls as qos_urls
 from openstack_dashboard.dashboards.admin.networks.subnets \
     import urls as subnet_urls
 from openstack_dashboard.dashboards.admin.networks.subnets \
@@ -32,7 +37,7 @@ NETWORKS = r'^(?P<network_id>[^/]+)/%s$'
 
 
 urlpatterns = [
-    url(r'^$', views.IndexView.as_view(), name='index'),
+    url(r'^$', views.IndexViewTabbed.as_view(), name='index'),
     url(r'^create/$', views.CreateView.as_view(), name='create'),
     url(NETWORKS % 'update', views.UpdateView.as_view(), name='update'),
     url(NETWORKS % 'detail', views.DetailView.as_view(), name='detail'),
@@ -55,4 +60,5 @@ urlpatterns = [
 
     url(r'^subnets/', include(subnet_urls, namespace='subnets')),
     url(r'^ports/', include(port_urls, namespace='ports')),
+    url(r'^qos/', include(qos_urls, namespace='qos')),
 ]

@@ -30,6 +30,11 @@ class AdminIndexView(tabs.TabbedTableView):
     template_name = 'admin/hypervisors/index.html'
     page_title = _("All Hypervisors")
 
+    # Send back the entire page, even on ajax requests so that the pie
+    # charts receive their fresh data
+    def handle_tabbed_response(self, tab_group, context):
+        return self.render_to_response(context)
+
     def get_context_data(self, **kwargs):
         context = super(AdminIndexView, self).get_context_data(**kwargs)
         try:

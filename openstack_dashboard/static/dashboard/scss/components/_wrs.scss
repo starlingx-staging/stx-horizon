@@ -1,0 +1,82 @@
+
+// Table limit formatting
+.table_actions div {
+    display: inline-block;
+}
+
+// Fault management summary formatting
+#active-alarm-stats {
+    margin: 10px 5px;
+    & > span {
+        margin: 0px 5px;
+    }
+}
+
+// System patch summary formatting
+#patching-status {
+    margin-top: 10px;
+}
+
+// Hosts summary formatting
+#hosts-stats {
+    margin-top: 10px;
+}
+
+// Sensor summary formatting
+#active-sensor-stats {
+    margin-top: 10px;
+}
+
+
+// Topbar Additions
+// ------------------------------
+
+.topbar {
+    .context_selection{
+      float: left;
+    }
+
+    .user_settings {
+      float: right;
+    }
+
+    // Styling for time & alarms
+    .navbar-center {
+      padding-top: 0.8em;
+
+      display: table;
+      margin-left: auto;
+      margin-right: auto;
+      float: none;
+
+      .datetime {
+        padding-right: 13px;
+      }
+    }
+}
+
+
+// Data List for sysinv
+// ------------------------------
+
+.dl-horizontal-wide {
+    @extend .dl-horizontal;
+    dt {
+        width: 22em;
+    }
+    dd {
+        margin-left: 23em;
+    }
+}
+
+
+// overflow override for smaller modals
+// ------------------------------------
+
+#create_usage_report_form .modal-body {
+    overflow-y: visible;
+}
+
+#create_router_form .modal-body {
+    overflow-y: visible;
+}

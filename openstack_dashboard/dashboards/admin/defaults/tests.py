@@ -50,6 +50,8 @@ class ServicesViewTests(test.BaseAdminViewTests):
             .MultipleTimes().AndReturn(True)
         api.base.is_service_enabled(IsA(http.HttpRequest), 'compute') \
             .MultipleTimes().AndReturn(True)
+        api.base.is_service_enabled(IsA(http.HttpRequest), 'platform') \
+            .MultipleTimes().AndReturn(neutron_enabled)
         api.base.is_service_enabled(IsA(http.HttpRequest), 'network') \
             .MultipleTimes().AndReturn(neutron_enabled)
 
@@ -85,7 +87,9 @@ class ServicesViewTests(test.BaseAdminViewTests):
                          '<Quota: (security_groups, 10)>',
                          '<Quota: (security_group_rules, 20)>',
                          '<Quota: (key_pairs, 100)>',
-                         '<Quota: (injected_file_path_bytes, 255)>']
+                         '<Quota: (injected_file_path_bytes, 255)>',
+                         '<Quota: (server_groups, 10)>',
+                         '<Quota: (server_group_members, 10)>']
         if neutron_enabled:
             expected_tabs.remove('<Quota: (floating_ips, 1)>')
             expected_tabs.remove('<Quota: (fixed_ips, 10)>')
@@ -123,6 +127,8 @@ class UpdateDefaultQuotasTests(test.BaseAdminViewTests):
         quota[0].limit = 123
         quota[1].limit = -1
         updated_quota = self._get_quota_info(quota)
+        updated_quota['server_groups'] = 5
+        updated_quota['server_group_members'] = 5
 
         # handle
         nova_fields = quotas.NOVA_QUOTA_FIELDS

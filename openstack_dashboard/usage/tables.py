@@ -27,6 +27,9 @@ class CSVSummary(tables.LinkAction):
     def get_link_url(self, usage=None):
         return self.table.kwargs['usage'].csv_link()
 
+    def allowed(self, request, datum):
+        return request.session.get('usage_list', False)
+
 
 class BaseUsageTable(tables.DataTable):
     vcpus = tables.Column('vcpus', verbose_name=_("VCPUs"))
@@ -59,6 +62,11 @@ class GlobalUsageTable(BaseUsageTable):
 
     def get_object_id(self, datum):
         return datum.tenant_id
+
+    def get_empty_message(self):
+        if not self.request.session.get('usage_list', False):
+            return _("Click on Submit to show Usage")
+        return super(BaseUsageTable, self).get_empty_message()
 
     class Meta(object):
         name = "global_usage"

@@ -35,6 +35,7 @@
 @import "components/navbar";
 @import "components/network_topology";
 @import "components/network_topology_svg";
+@import "components/host_topology";
 @import "components/pie_charts";
 @import "components/progress_bars";
 @import "components/quota";
@@ -49,6 +50,9 @@
 @import "components/tables";
 @import "components/transfer_tables";
 @import "components/wizard";
+
+@import "components/wrs";
+@import "/static/horizon/lib/jquery/jquery.datetimepicker.css";
 
 // Framework
 @import "/framework/framework";

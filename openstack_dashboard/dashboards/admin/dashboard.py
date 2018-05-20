@@ -1,4 +1,4 @@
-# Copyright 2012 Nebula, Inc.
+#  Copyright 2012 Nebula, Inc.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -14,25 +14,22 @@
 
 from django.utils.translation import ugettext_lazy as _
 
-from openstack_auth import utils
-
 import horizon
-
-from django.conf import settings
 
 
 class Admin(horizon.Dashboard):
     name = _("Admin")
     slug = "admin"
 
-    if getattr(settings, 'POLICY_CHECK_FUNCTION', None):
-        policy_rules = (('identity', 'admin_required'),
-                        ('image', 'context_is_admin'),
-                        ('volume', 'context_is_admin'),
-                        ('compute', 'context_is_admin'),
-                        ('network', 'context_is_admin'),
-                        ('orchestration', 'context_is_admin'),)
-    else:
-        permissions = (tuple(utils.get_admin_permissions()),)
+    policy_rules = (('identity', 'admin_required'),
+                    ('image', 'context_is_admin'),
+                    ('volume', 'context_is_admin'),
+                    ('compute', 'context_is_admin'),
+                    ('network', 'context_is_admin'),
+                    ('orchestration', 'context_is_admin'),
+                    ('telemetry', 'context_is_admin'),)
+
+    permissions = ('openstack.roles.admin',)
+
 
 horizon.register(Admin)

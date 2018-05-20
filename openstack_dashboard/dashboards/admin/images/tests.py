@@ -46,10 +46,12 @@ class ImageCreateViewTest(test.BaseAdminViewTests):
 
 class ImagesViewTest(test.BaseAdminViewTests):
     @test.create_stubs({api.glance: ('image_list_detailed',),
+                        api.cinder: ('volume_type_list',),
                         api.keystone: ('tenant_list',)})
     def test_images_list(self):
         filters = {'is_public': None}
         api.glance.image_list_detailed(IsA(http.HttpRequest),
+                                       limit=None,
                                        marker=None,
                                        paginate=True,
                                        filters=filters,
@@ -58,6 +60,8 @@ class ImagesViewTest(test.BaseAdminViewTests):
                                        reversed_order=False) \
             .AndReturn([self.images.list(),
                         False, False])
+        api.cinder.volume_type_list(
+            IsA(http.HttpRequest)).AndReturn(self.volumes.list())
         # Test tenant list
         api.keystone.tenant_list(IsA(http.HttpRequest)).\
             AndReturn([self.tenants.list(), False])
@@ -79,6 +83,7 @@ class ImagesViewTest(test.BaseAdminViewTests):
 
     @override_settings(API_RESULT_PAGE_SIZE=2)
     @test.create_stubs({api.glance: ('image_list_detailed',),
+                        api.cinder: ('volume_type_list',),
                         api.keystone: ('tenant_list',)})
     def test_images_list_get_pagination(self):
         images = self.images.list()[:5]
@@ -87,21 +92,33 @@ class ImagesViewTest(test.BaseAdminViewTests):
                   'sort_dir': 'asc', 'sort_key': 'name',
                   'reversed_order': False}
         api.glance.image_list_detailed(IsA(http.HttpRequest),
+                                       limit=None,
                                        marker=None,
                                        **kwargs) \
             .AndReturn([images, True, True])
         api.glance.image_list_detailed(IsA(http.HttpRequest),
+                                       limit=None,
                                        marker=None,
                                        **kwargs) \
             .AndReturn([images[:2], True, True])
         api.glance.image_list_detailed(IsA(http.HttpRequest),
+                                       limit=None,
                                        marker=images[2].id,
                                        **kwargs) \
             .AndReturn([images[2:4], True, True])
         api.glance.image_list_detailed(IsA(http.HttpRequest),
+                                       limit=None,
                                        marker=images[4].id,
                                        **kwargs) \
             .AndReturn([images[4:], True, True])
+        api.cinder.volume_type_list(
+            IsA(http.HttpRequest)).AndReturn(self.volumes.list())
+        api.cinder.volume_type_list(
+            IsA(http.HttpRequest)).AndReturn(self.volumes.list())
+        api.cinder.volume_type_list(
+            IsA(http.HttpRequest)).AndReturn(self.volumes.list())
+        api.cinder.volume_type_list(
+            IsA(http.HttpRequest)).AndReturn(self.volumes.list())
         # Test tenant list
         api.keystone.tenant_list(IsA(http.HttpRequest)).MultipleTimes().\
             AndReturn([self.tenants.list(), False])
@@ -140,6 +157,7 @@ class ImagesViewTest(test.BaseAdminViewTests):
 
     @override_settings(API_RESULT_PAGE_SIZE=2)
     @test.create_stubs({api.glance: ('image_list_detailed',),
+                        api.cinder: ('volume_type_list',),
                         api.keystone: ('tenant_list',)})
     def test_images_list_get_prev_pagination(self):
         images = self.images.list()[:3]
@@ -147,25 +165,37 @@ class ImagesViewTest(test.BaseAdminViewTests):
         kwargs = {'paginate': True, 'filters': filters,
                   'sort_dir': 'asc', 'sort_key': 'name'}
         api.glance.image_list_detailed(IsA(http.HttpRequest),
+                                       limit=None,
                                        marker=None,
                                        reversed_order=False,
                                        **kwargs) \
             .AndReturn([images, True, False])
         api.glance.image_list_detailed(IsA(http.HttpRequest),
+                                       limit=None,
                                        marker=None,
                                        reversed_order=False,
                                        **kwargs) \
             .AndReturn([images[:2], True, True])
         api.glance.image_list_detailed(IsA(http.HttpRequest),
+                                       limit=None,
                                        marker=images[2].id,
                                        reversed_order=False,
                                        **kwargs) \
             .AndReturn([images[2:], True, True])
         api.glance.image_list_detailed(IsA(http.HttpRequest),
+                                       limit=None,
                                        marker=images[2].id,
                                        reversed_order=True,
                                        **kwargs) \
             .AndReturn([images[:2], True, True])
+        api.cinder.volume_type_list(
+            IsA(http.HttpRequest)).AndReturn(self.volumes.list())
+        api.cinder.volume_type_list(
+            IsA(http.HttpRequest)).AndReturn(self.volumes.list())
+        api.cinder.volume_type_list(
+            IsA(http.HttpRequest)).AndReturn(self.volumes.list())
+        api.cinder.volume_type_list(
+            IsA(http.HttpRequest)).AndReturn(self.volumes.list())
         # Test tenant list
         api.keystone.tenant_list(IsA(http.HttpRequest)).MultipleTimes().\
             AndReturn([self.tenants.list(), False])

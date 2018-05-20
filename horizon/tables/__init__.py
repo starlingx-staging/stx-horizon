@@ -20,6 +20,8 @@ from horizon.tables.actions import BatchAction
 from horizon.tables.actions import DeleteAction
 from horizon.tables.actions import FilterAction
 from horizon.tables.actions import FixedFilterAction
+from horizon.tables.actions import FixedWithQueryFilter
+from horizon.tables.actions import LimitAction
 from horizon.tables.actions import LinkAction
 from horizon.tables.actions import NameFilterAction
 from horizon.tables.actions import UpdateAction
@@ -40,6 +42,8 @@ __all__ = [
     'DeleteAction',
     'FilterAction',
     'FixedFilterAction',
+    'FixedWithQueryFilter',
+    'LimitAction',
     'LinkAction',
     'NameFilterAction',
     'UpdateAction',

@@ -23,6 +23,20 @@ from openstack_dashboard import api
 LOG = logging.getLogger(__name__)
 
 
+def sort_addresses_by_nic(instance):
+    result = []
+    for entry in sorted(instance.nics, key=lambda nic: nic.keys()[0]):
+        nic = entry.values()[0]
+        addresses = []
+        for address in instance.addresses.get(nic['network'], []):
+            if address['addr'] is None:
+                continue
+            if address['OS-EXT-IPS-MAC:mac_addr'] == nic['mac_address']:
+                addresses.append(address)
+        result.append({nic['network']: addresses or [{'addr': "No Address"}]})
+    return result
+
+
 def flavor_list(request):
     """Utility method to retrieve a list of flavors."""
     try:

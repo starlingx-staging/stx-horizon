@@ -24,3 +24,15 @@ class Snapshots(horizon.Panel):
         ('openstack.services.volume', 'openstack.services.volumev2'),
     )
     policy_rules = (("volume", "context_is_admin"),)
+
+    def allowed(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return super(Snapshots, self).allowed(context)
+
+    def nav(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return True

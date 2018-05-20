@@ -95,8 +95,10 @@ class BaseUsage(object):
     def get_form(self):
         if not hasattr(self, 'form'):
             req = self.request
-            start = req.GET.get('start', req.session.get('usage_start'))
-            end = req.GET.get('end', req.session.get('usage_end'))
+            usage_start = req.session.get('usage_start')
+            usage_end = req.session.get('usage_end')
+            start = req.GET.get('start', usage_start)
+            end = req.GET.get('end', usage_end)
             if start and end:
                 # bound form
                 self.form = forms.DateForm({'start': start, 'end': end})
@@ -107,8 +109,10 @@ class BaseUsage(object):
                 end = init[1].isoformat()
                 self.form = forms.DateForm(initial={'start': start,
                                                     'end': end})
-            req.session['usage_start'] = start
-            req.session['usage_end'] = end
+            if usage_start != start:
+                req.session['usage_start'] = start
+            if usage_end != end:
+                req.session['usage_end'] = end
         return self.form
 
     def _get_neutron_usage(self, limits, resource_name):
@@ -253,6 +257,11 @@ class GlobalUsage(BaseUsage):
     show_deleted = True
 
     def get_usage_list(self, start, end):
+        req = self.request
+        if not req.session.get('usage_list', False):
+            if not req.GET.get('start') or not req.GET.get('end'):
+                return []
+            req.session['usage_list'] = True
         return api.nova.usage_list(self.request, start, end)
 
 

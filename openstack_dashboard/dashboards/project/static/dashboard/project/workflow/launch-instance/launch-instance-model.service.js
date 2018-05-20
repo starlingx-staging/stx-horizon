@@ -206,7 +206,8 @@
         // May be null
         vol_device_name: 'vda',
         vol_delete_on_instance_delete: false,
-        vol_size: 1
+        vol_size: 1,
+        min_inst_count: 0
       };
     }
 
@@ -425,9 +426,11 @@
         // deleted and is guaranteed to exist. It by default contains all
         // of the rules needed for an instance to reach out to the network
         // so the instance can provision itself.
-        if (item.name === 'default') {
-          model.newInstanceSpec.security_groups.push(item);
-        }
+
+        // WRS: do not add default to allocated
+        // if (item.name === 'default') {
+        //   model.newInstanceSpec.security_groups.push(item);
+        // }
       });
       push.apply(model.securityGroups, data.data.items);
     }
@@ -477,10 +480,7 @@
       if (data.data.items.length === 1) {
         model.newInstanceSpec.networks.push(data.data.items[0]);
       }
-      push.apply(model.networks,
-        data.data.items.filter(function(net) {
-          return net.subnets.length > 0;
-        }));
+      push.apply(model.networks, data.data.items);
       return data;
     }
 

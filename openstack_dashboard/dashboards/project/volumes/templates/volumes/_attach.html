@@ -9,7 +9,7 @@
 {% endblock %}
 
 {% block modal-footer %}
-    <a href="{% url 'horizon:project:volumes:index' %}" class="btn btn-default cancel">{% trans "Cancel" %}</a>
+    <a href="{% url 'horizon:project:volumes:index' %}" class="btn btn-default cancel" data-dismiss="modal">{% trans "Cancel" %}</a>
   {% if show_attach %}
     <input class="btn btn-primary" type="submit" value="{% trans "Attach Volume" %}" />
   {% endif %}

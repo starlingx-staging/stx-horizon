@@ -18,7 +18,12 @@
     .module('horizon.app.tech-debt')
     .controller('ImageFormController', ImageFormController);
 
-  function ImageFormController() {
+  /* WRS: inject timeout */
+  ImageFormController.$inject = [
+    '$timeout'
+  ];
+
+  function ImageFormController($timeout) {
     var ctrl = this;
 
     ctrl.copyFrom = angular.element('#id_image_url').val();
@@ -36,6 +41,12 @@
       } else {
         ctrl.diskFormat = "";
       }
+
+      /* WRS: trigger a change in select form */
+      $timeout(function() {
+        $('#id_disk_format').val(ctrl.diskFormat).change();
+      }, 0, false);
+
     };
   }
 

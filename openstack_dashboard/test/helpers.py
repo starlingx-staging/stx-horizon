@@ -198,6 +198,7 @@ class TestCase(horizon_helpers.TestCase):
         self.context = {
             'authorized_tenants': self.tenants.list(),
             'JS_CATALOG': context_processors.get_js_catalog(settings),
+            'system_name': ''
         }
 
     def _setup_factory(self):

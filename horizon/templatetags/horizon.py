@@ -88,7 +88,8 @@ def horizon_nav(context):
             'current': current_dashboard,
             'current_panel_group': current_panel_group,
             'current_panel': current_panel.slug if current_panel else '',
-            'request': context['request']}
+            'request': context['request'],
+            'system_name': context['system_name']}
 
 
 @register.inclusion_tag('horizon/_nav_list.html', takes_context=True)
@@ -241,3 +242,8 @@ def minifyspace(parser, token):
     nodelist = parser.parse(('endminifyspace',))
     parser.delete_first_token()
     return MinifiedNode(nodelist)
+
+
+@register.filter(name="get_value")
+def get_value(dictionary, key):
+    return dictionary.get(key)

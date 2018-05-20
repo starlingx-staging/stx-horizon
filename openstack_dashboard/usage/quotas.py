@@ -35,6 +35,8 @@ NOVA_COMPUTE_QUOTA_FIELDS = {
     "instances",
     "injected_files",
     "injected_file_content_bytes",
+    "server_group_members",
+    "server_groups",
     "injected_file_path_bytes",
     "ram",
     "key_pairs",
@@ -70,6 +72,8 @@ QUOTA_NAMES = {
     "instances": _('Instances'),
     "injected_files": _('Injected Files'),
     "injected_file_content_bytes": _('Injected File Content Bytes'),
+    "server_group_members": _('Server Group Members'),
+    "server_groups": _('Server Groups'),
     "ram": _('RAM (MB)'),
     "floating_ips": _('Floating IPs'),
     "fixed_ips": _('Fixed IPs'),
@@ -310,9 +314,11 @@ def _get_tenant_compute_usages(request, usages, disabled_quotas, tenant_id):
     if not base.is_service_enabled(request, 'compute'):
         return
 
-    if tenant_id:
+    if tenant_id and tenant_id != request.user.project_id:
+        # all_tenants is required when querying about any project the user is
+        # not currently scoped to
         instances, has_more = nova.server_list(
-            request, search_opts={'tenant_id': tenant_id})
+            request, search_opts={'tenant_id': tenant_id, 'all_tenants': True})
     else:
         instances, has_more = nova.server_list(request)
 
@@ -468,6 +474,22 @@ def tenant_quota_usages(request, tenant_id=None, targets=None):
     _get_tenant_network_usages(request, usages, disabled_quotas, tenant_id)
     _get_tenant_volume_usages(request, usages, disabled_quotas, tenant_id)
 
+    # Server Group usage
+    if 'server_groups' not in disabled_quotas:
+        server_groups = []
+        try:
+            server_groups = nova.server_group_list(request)
+        except Exception:
+            pass
+
+        for server_group in server_groups:
+            project_id = getattr(server_group, 'project_id', None)
+            setattr(server_group, 'project_id', project_id)
+
+        usages.tally('server_groups', len([server_group for server_group in
+                                           server_groups if
+                                           server_group.project_id ==
+                                           request.user.tenant_id]))
     return usages
 
 

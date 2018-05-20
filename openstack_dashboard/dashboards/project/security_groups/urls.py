@@ -30,5 +30,5 @@ urlpatterns = [
         name='add_rule'),
     url(r'^(?P<security_group_id>[^/]+)/update/$',
         views.UpdateView.as_view(),
-        name='update')
+        name='update'),
 ]

@@ -17,6 +17,7 @@ django-compressor>=2.0 # MIT
 django-openstack-auth>=3.5.0 # Apache-2.0
 django-pyscss>=2.0.2 # BSD License (2 clause)
 futurist!=0.15.0,>=0.11.0 # Apache-2.0
+httplib2>=0.7.5 # MIT
 iso8601>=0.1.11 # MIT
 netaddr!=0.7.16,>=0.7.13 # BSD
 oslo.concurrency>=3.8.0 # Apache-2.0
@@ -37,6 +38,7 @@ python-novaclient>=9.0.0 # Apache-2.0
 python-swiftclient>=3.2.0 # Apache-2.0
 pytz>=2013.6 # MIT
 PyYAML>=3.10.0 # MIT
+requests-toolbelt>=0.5
 semantic-version>=2.3.1 # BSD
 six>=1.9.0 # MIT
 XStatic>=1.0.0 # MIT License

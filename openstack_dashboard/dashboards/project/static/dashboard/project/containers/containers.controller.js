@@ -42,7 +42,8 @@
     'horizon.framework.widgets.magic-search.service',
     '$scope',
     '$location',
-    '$q'
+    '$q',
+    '$http'
   ];
 
   function ContainersController(swiftAPI,
@@ -57,7 +58,8 @@
                                 magicSearchService,
                                 $scope,
                                 $location,
-                                $q) {
+                                $q,
+                                $http) {
     var ctrl = this;
     ctrl.model = containersModel;
     ctrl.model.initialize();
@@ -78,7 +80,6 @@
     // the searchUpdated event.
     ctrl.filterEventTrigeredBySearchBar = true;
 
-    ctrl.checkContainerNameConflict = checkContainerNameConflict;
     ctrl.toggleAccess = toggleAccess;
     ctrl.deleteContainer = deleteContainer;
     ctrl.deleteContainerAction = deleteContainerAction;
@@ -86,19 +87,8 @@
     ctrl.createContainerAction = createContainerAction;
     ctrl.selectContainer = selectContainer;
 
-    //////////
-    function checkContainerNameConflict(containerName) {
-      if (!containerName) {
-        // consider empty model valid
-        return $q.when();
-      }
-
-      var def = $q.defer();
-      // reverse the sense here - successful lookup == error so we reject the
-      // name if we find it in swift
-      swiftAPI.getContainer(containerName, true).then(def.reject, def.resolve);
-      return def.promise;
-    }
+    // WRS: set X-CSRFToken for post request in case CSRF_COOKIE_HTTPONLY is enabled
+    $http.defaults.headers.post['X-CSRFToken'] = $('input[name=csrfmiddlewaretoken]').val();
 
     function selectContainer(container) {
       if (!ctrl.model.container || container.name !== ctrl.model.container.name) {
@@ -199,12 +189,6 @@
             items: [
               {
                 key: 'name',
-                validationMessage: {
-                  exists: gettext('A container with that name exists.')
-                },
-                $asyncValidators: {
-                  exists: checkContainerNameConflict
-                }
               },
               {
                 key: 'public',

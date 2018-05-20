@@ -45,6 +45,9 @@ def data(TEST):
     TEST.neutron_quota_usages = utils.TestDataContainer()
     TEST.ip_availability = utils.TestDataContainer()
     TEST.qos_policies = utils.TestDataContainer()
+    TEST.qoses = utils.TestDataContainer()
+    TEST.providernets = utils.TestDataContainer()
+    TEST.providernettypes = utils.TestDataContainer()
 
     # Data return by neutronclient.
     TEST.api_agents = utils.TestDataContainer()
@@ -65,6 +68,49 @@ def data(TEST):
     TEST.api_extensions = utils.TestDataContainer()
     TEST.api_ip_availability = utils.TestDataContainer()
     TEST.api_qos_policies = utils.TestDataContainer()
+    TEST.api_qoses = utils.TestDataContainer()
+    TEST.api_providernets = utils.TestDataContainer()
+
+    qos_dict = {'id': 'e8abc972-eb0c-47f1-9edd-4bc6e3bcd8c9',
+                'description': 'test',
+                'type': '8',
+                'name': 'My name',
+                'tenant_id': '82278d84-e0a5-42ac-95be-e6af08727e42',
+                'policies': dict(scheduler=dict(weight="8"))}
+    TEST.api_qoses.add(qos_dict)
+    qos = copy.deepcopy(qos_dict)
+    TEST.qoses.add(neutron.QoSPolicy(qos))
+
+    pnt_dict = {
+        'id': 'e6g7c9fc-a0d1-4be3-95f3-587dbc875815',
+        'name': 'vlan',
+        'type': 'vlan',
+    }
+
+    TEST.providernettypes.add(neutron.ProviderNetworkType(pnt_dict))
+
+    pnr_dict = {
+        'description': 'tenant2 reserved networks',
+        'id': 'e6g7c9fc-a0d1-4be3-95f3-587dbc875815',
+        'maximum': 631,
+        'minimum': 616,
+        'name': 'roup0-tenant',
+        'providernet_id': 'e6f7c9fc-a0d1-4be3-95f3-587dbc875815',
+        'providernet_name': 'roup0-data1',
+        'shared': False,
+        'tenant_id': 'fe09a916d70242f4a5f06df52e814b4',
+    }
+
+    pn_dict = {'id': 'e8abc972-eb0c-47f1-9edd-4bc6e3bcd8c9',
+               'description': 'test',
+               'type': '8',
+               'name': 'My name',
+               'status': 'DOWN',
+               'mtu': '1500',
+               'ranges': [neutron.ProviderNetworkRange(pnr_dict)]}
+    TEST.api_providernets.add(pn_dict)
+    pn = copy.deepcopy(pn_dict)
+    TEST.providernets.add(neutron.ProviderNetwork(pn))
 
     # 1st network.
     network_dict = {'admin_state_up': True,
@@ -74,7 +120,9 @@ def data(TEST):
                     'subnets': ['e8abc972-eb0c-41f1-9edd-4bc6e3bcd8c9'],
                     'tenant_id': '1',
                     'router:external': False,
-                    'shared': False}
+                    'shared': False,
+                    'vlan_transparent': False,
+                    'wrs-tm__qos': None}
     subnet_dict = {'allocation_pools': [{'end': '10.0.0.254',
                                          'start': '10.0.0.2'}],
                    'dns_nameservers': [],
@@ -84,6 +132,11 @@ def data(TEST):
                    'gateway_ip': '10.0.0.1',
                    'id': network_dict['subnets'][0],
                    'ip_version': 4,
+                   'wrs-net__managed': False,
+                   'wrs-net__vlan_id': None,
+                   'wrs-provider__network_type': 'test',
+                   'wrs-provider__physical_network': 'test',
+                   'wrs-provider__segmentation_id': 'test',
                    'name': 'mysubnet1',
                    'network_id': network_dict['id'],
                    'tenant_id': network_dict['tenant_id']}
@@ -174,7 +227,9 @@ def data(TEST):
                     'subnets': ['3f7c5d79-ee55-47b0-9213-8e669fb03009'],
                     'tenant_id': '2',
                     'router:external': False,
-                    'shared': True}
+                    'shared': True,
+                    'vlan_transparent': True,
+                    'wrs-tm__qos': None}
     subnet_dict = {'allocation_pools': [{'end': '172.16.88.254',
                                          'start': '172.16.88.2'}],
                    'dns_nameservers': ['10.56.1.20', '10.56.1.21'],
@@ -187,6 +242,11 @@ def data(TEST):
                    'gateway_ip': '172.16.88.1',
                    'id': '3f7c5d79-ee55-47b0-9213-8e669fb03009',
                    'ip_version': 4,
+                   'wrs-net__managed': False,
+                   'wrs-net__vlan_id': None,
+                   'wrs-provider__network_type': 'test',
+                   'wrs-provider__physical_network': 'test',
+                   'wrs-provider__segmentation_id': 'test',
                    'name': 'aaaa',
                    'network_id': network_dict['id'],
                    'tenant_id': network_dict['tenant_id']}
@@ -231,7 +291,9 @@ def data(TEST):
                     'subnets': ['d6bdc71c-7566-4d32-b3ff-36441ce746e8'],
                     'tenant_id': '3',
                     'router:external': True,
-                    'shared': False}
+                    'shared': False,
+                    'vlan_transparent': True,
+                    'wrs-tm__qos': None}
     subnet_dict = {'allocation_pools': [{'start': '172.24.4.226.',
                                          'end': '172.24.4.238'}],
                    'dns_nameservers': [],
@@ -241,6 +303,11 @@ def data(TEST):
                    'gateway_ip': '172.24.4.225',
                    'id': 'd6bdc71c-7566-4d32-b3ff-36441ce746e8',
                    'ip_version': 4,
+                   'wrs-net__managed': False,
+                   'wrs-net__vlan_id': None,
+                   'wrs-provider__network_type': 'test',
+                   'wrs-provider__physical_network': 'test',
+                   'wrs-provider__segmentation_id': 'test',
                    'name': 'ext_subnet',
                    'network_id': network_dict['id'],
                    'tenant_id': network_dict['tenant_id']}
@@ -263,7 +330,9 @@ def data(TEST):
                     'subnets': ['88ddd443-4377-ab1f-87dd-4bc4a662dbb6'],
                     'tenant_id': '1',
                     'router:external': False,
-                    'shared': False}
+                    'shared': False,
+                    'vlan_transparent': True,
+                    'wrs-tm__qos': None}
     subnet_dict = {'allocation_pools': [{'end': 'ff09::ff',
                                          'start': 'ff09::02'}],
                    'dns_nameservers': [],
@@ -273,6 +342,11 @@ def data(TEST):
                    'gateway_ip': 'ff09::1',
                    'id': network_dict['subnets'][0],
                    'ip_version': 6,
+                   'wrs-net__managed': False,
+                   'wrs-net__vlan_id': None,
+                   'wrs-provider__network_type': 'test',
+                   'wrs-provider__physical_network': 'test',
+                   'wrs-provider__segmentation_id': 'test',
                    'name': 'v6_subnet1',
                    'network_id': network_dict['id'],
                    'tenant_id': network_dict['tenant_id'],
@@ -295,7 +369,9 @@ def data(TEST):
                     'subnets': ['5d736a21-0036-4779-8f8b-eed5f98077ec'],
                     'tenant_id': '1',
                     'router:external': False,
-                    'shared': False}
+                    'shared': False,
+                    'vlan_transparent': True,
+                    'wrs-tm__qos': None}
     subnet_dict = {'allocation_pools': [{'end': 'ff09::ff',
                                          'start': 'ff09::02'}],
                    'dns_nameservers': [],
@@ -305,6 +381,11 @@ def data(TEST):
                    'gateway_ip': 'ff09::1',
                    'id': network_dict['subnets'][0],
                    'ip_version': 6,
+                   'wrs-net__managed': False,
+                   'wrs-net__vlan_id': None,
+                   'wrs-provider__network_type': 'test',
+                   'wrs-provider__physical_network': 'test',
+                   'wrs-provider__segmentation_id': 'test',
                    'name': 'v6_subnet2',
                    'network_id': network_dict['id'],
                    'tenant_id': network_dict['tenant_id'],

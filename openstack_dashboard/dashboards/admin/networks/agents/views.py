@@ -39,6 +39,10 @@ class AddView(forms.ModalFormView):
         return reverse(self.success_url,
                        args=(self.kwargs['network_id'],))
 
+    def get_cancel_url(self):
+        return reverse(self.success_url,
+                       args=(self.kwargs['network_id'],))
+
     def get_context_data(self, **kwargs):
         context = super(AddView, self).get_context_data(**kwargs)
         context['network_id'] = self.kwargs['network_id']

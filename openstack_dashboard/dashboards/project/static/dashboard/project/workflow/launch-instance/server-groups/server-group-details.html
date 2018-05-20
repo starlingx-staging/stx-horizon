@@ -3,11 +3,15 @@
   <thead>
     <tr>
       <th st-sort="policy" st-sort-default translate>Policy</th>
+      <th translate>Members</th>
+      <th translate>Metadata</th>
     </tr>
   </thead>
   <tbody>
-    <tr ng-repeat="policy in row.policies">
-      <td>{$ policy | noValue $}</td>
+    <tr>
+      <td>{$ row.policies | noValue $}</td>
+      <td>{$ row.members | noValue $}</td>
+      <td>{$ row.metadata | noValue $}</td>
     </tr>
   </tbody>
 </table>

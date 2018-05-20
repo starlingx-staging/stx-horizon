@@ -1,7 +1,7 @@
 .messages {
   position: fixed;
-  z-index: $zindex-dropdown + 1;
-  padding-top: $padding-small-vertical;
+  z-index: 10000;
+  top: $messages-top;
   right: $padding-large-horizontal;
   // TODO (hurgleburlger) RESPONSIVE
   // We will readdress this when we address the responsiveness of Horizon

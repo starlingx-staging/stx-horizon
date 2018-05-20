@@ -22,6 +22,8 @@ Middleware provided and used by Horizon.
 import json
 import logging
 
+from dateutil import tz as data_tz
+
 from django.conf import settings
 from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.auth.views import redirect_to_login
@@ -30,10 +32,11 @@ from django import http
 from django import shortcuts
 from django.utils.encoding import iri_to_uri
 from django.utils import timezone
-from django.utils.translation import ugettext_lazy as _
 
+from openstack_auth import utils as auth_utils
 from openstack_auth import views as auth_views
 
+from horizon.base import Horizon
 from horizon import exceptions
 from horizon.utils import functions as utils
 
@@ -66,6 +69,12 @@ class HorizonMiddleware(object):
             # it is CRITICAL to perform this check as early as possible
             # to avoid creating too many sessions
             return None
+
+        tz = request.session.get('django_timezone')
+        if tz:
+            timezone.activate(tz)
+        else:
+            timezone.activate(data_tz.tzlocal())
 
         if request.is_ajax():
             # if the request is Ajax we do not want to proceed, as clients can
@@ -106,9 +115,7 @@ class HorizonMiddleware(object):
                         }
                     )
 
-        tz = utils.get_timezone(request)
-        if tz:
-            timezone.activate(tz)
+        request.session.modified = True
 
     def process_exception(self, request, exception):
         """Catches internal Horizon exception classes.
@@ -116,8 +123,8 @@ class HorizonMiddleware(object):
         Exception classes such as NotAuthorized, NotFound and Http302
         are caught and handles them gracefully.
         """
-        if isinstance(exception, (exceptions.NotAuthorized,
-                                  exceptions.NotAuthenticated)):
+        if isinstance(exception, exceptions.NotAuthenticated) or not \
+                request.user.is_authenticated():
             auth_url = settings.LOGIN_URL
             next_url = iri_to_uri(request.get_full_path())
             if next_url != auth_url:
@@ -127,19 +134,37 @@ class HorizonMiddleware(object):
             login_url = request.build_absolute_uri(auth_url)
             response = redirect_to_login(next_url, login_url=login_url,
                                          redirect_field_name=field_name)
-            if isinstance(exception, exceptions.NotAuthorized):
-                logout_reason = _("Unauthorized. Please try logging in again.")
-                utils.add_logout_reason(request, response, logout_reason,
-                                        'error')
-                # delete messages, created in get_data() method
-                # since we are going to redirect user to the login page
-                response.delete_cookie('messages')
 
             if request.is_ajax():
                 response_401 = http.HttpResponse(status=401)
                 response_401['X-Horizon-Location'] = response['location']
-                return response_401
+                response = response_401
 
+            login_user = request.COOKIES.get("login_user")
+            if login_user:
+                LOG.info("process_exception logout user %s", login_user)
+                auth_utils.handle_user_logout(login_user)
+                response.set_cookie("login_user")
+
+            return response
+
+        if isinstance(exception, exceptions.NotAuthorized):
+            """ Not authorized could be a result of project context switching.
+                redirect to dashboard page if it is possible or to homepage
+            """
+            if hasattr(request.horizon, 'dashboard'):
+                url = request.horizon.dashboard.get_absolute_url()
+            else:
+                # go home if there isn't dashboard
+                url = Horizon.get_user_home(request.user)
+
+            response = shortcuts.redirect(url)
+            if request.is_ajax():
+                response_403 = http.HttpResponse(status=403)
+                response_403['X-Horizon-Location'] = response['location']
+                return response_403
+
+            LOG.info('Access is not authorized, redirect to: %s', url)
             return response
 
         # If an internal "NotFound" error gets this far, return a real 404.
@@ -204,4 +229,12 @@ class HorizonMiddleware(object):
                 # The header method has notable drawbacks (length limits,
                 # etc.) and is not meant as a long-term solution.
                 response['X-Horizon-Messages'] = json.dumps(queued_msgs)
+
+        elif type(response) == http.HttpResponseRedirect:
+            # WRS: redirect from login page to overview page without start and
+            # end parameters so that user can login quickly without populating
+            # nova usage table
+            if '/admin/?start=' in response.url:
+                return http.HttpResponseRedirect('/admin/')
+
         return response

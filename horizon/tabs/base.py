@@ -290,7 +290,8 @@ class Tab(html.HTMLElement):
 
     @property
     def load(self):
-        load_preloaded = self.preload or self.is_active()
+        load_preloaded = self.preload or self.is_active() or \
+            self.get_id() in self.request.GET.get("loaded", "")
         return load_preloaded and self._allowed and self._enabled
 
     @property
@@ -461,6 +462,7 @@ class TableTab(Tab):
                 table.data = data_func()
                 table._meta.has_prev_data = self.has_prev_data(table)
                 table._meta.has_more_data = self.has_more_data(table)
+                table._meta.limit_count = self.get_limit_count(table)
             # Mark our data as loaded so we don't run the loaders again.
             self._table_data_loaded = True
 
@@ -489,6 +491,9 @@ class TableTab(Tab):
 
     def has_more_data(self, table):
         return False
+
+    def get_limit_count(self, table):
+        return None
 
 
 class DetailTabsGroup(TabGroup):

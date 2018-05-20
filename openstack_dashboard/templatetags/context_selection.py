@@ -98,9 +98,11 @@ def show_region_list(context):
     if 'request' not in context:
         return {}
     request = context['request']
+    regions = sorted([r for r in request.user.available_services_regions if r
+                      not in getattr(settings, 'REGION_EXCLUSIONS', [])],
+                     key=lambda x: (x or '').lower())
     context = {'region_name': request.user.services_region,
-               'regions': sorted(request.user.available_services_regions,
-                                 key=lambda x: (x or '').lower()),
+               'regions': regions,
                'page_url': request.horizon.get('panel').get_absolute_url()}
     return context
 

@@ -9,13 +9,18 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+#
+# Copyright (c) 2013-2015 Wind River Systems, Inc.
+#
 
 from django.conf import settings
 from django.core import urlresolvers
+from django.core.urlresolvers import reverse  # noqa
 from django import template
 from django.template import defaultfilters as filters
 from django.utils.translation import pgettext_lazy
 from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import ungettext_lazy
 
 from horizon import tables
 from horizon.utils import filters as utils_filters
@@ -122,6 +127,86 @@ class NovaServicesTable(tables.DataTable):
         name = "nova_services"
         verbose_name = _("Compute Services")
         table_actions = (SubServiceFilterAction,)
+        multi_select = False
+
+
+class ControllerServiceFilterAction(tables.FilterAction):
+    def filter(self, table, services, filter_string):
+        q = filter_string.lower()
+
+        def comp(service):
+            if q in service.type.lower():
+                return True
+            return False
+
+        return filter(comp, services)
+
+
+class SwactServiceGroupAction(tables.BatchAction):
+    # policy_rules = (("identity", "identity:delete_role"),)
+    name = "swact"
+    action_type = 'danger'
+    redirect_url = "horizon:admin:info:index"
+
+    @staticmethod
+    def action_present(count):
+        return ungettext_lazy(
+            u"Swact Service",
+            u"Swact Services",
+            count
+        )
+
+    @staticmethod
+    def action_past(count):
+        return ungettext_lazy(
+            u"Swacted Service",
+            u"Swacted Services",
+            count
+        )
+
+    def allowed(self, request, iservice):
+        try:
+            if iservice.standby_state == "enabled":
+                return True  # api.iservice.may_swact()
+            else:
+                return False
+        except Exception:
+            pass
+
+    def get_success_url(self, request):
+        return reverse(self.redirect_url)
+
+    def action(self, request, obj_id):
+        # api.iservice.iservicegroup_swact(request, obj_id)
+        return False
+
+
+def cs_get_c0(iservice):
+    template_name = 'admin/info/_services_c0.html'
+    context = {"iservice": iservice}
+    return template.loader.render_to_string(template_name, context)
+
+
+def cs_get_c1(iservice):
+    template_name = 'admin/info/_services_c1.html'
+    context = {"iservice": iservice}
+    return template.loader.render_to_string(template_name, context)
+
+
+class ControllerServicesTable(tables.DataTable):
+    servicename = tables.Column("servicename", verbose_name=_('Name'))
+    # sgstate = tables.Column('sgstate', verbose_name=_('Status'))
+    c0 = tables.Column(cs_get_c0, verbose_name=_('controller-0'))
+    c1 = tables.Column(cs_get_c1, verbose_name=_('controller-1'))
+
+    # def get_object_id(self, obj):
+    #    return "%s-%s" % (obj.servicename, obj.hostname)
+
+    class Meta(object):
+        name = "controller_services"
+        verbose_name = _("Controller Services")
+        # row_actions = (SwactServiceGroupAction,)
+        table_actions = (ControllerServiceFilterAction,)
         multi_select = False
 
 

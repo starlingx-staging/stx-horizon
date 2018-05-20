@@ -12,6 +12,10 @@
     {% endif %}
     <dt>{% trans "Status" %}</dt>
     <dd>{{ snapshot.status|capfirst }}</dd>
+    {% if snapshot.error %}
+    <dt>{% trans "Error Detail" %}</dt>
+    <dd>{{ snapshot.error }}</dd>
+    {% endif %}
     <dt>{% trans "Volume" %}</dt>
     <dd>
       <a href="{{ snapshot.volume_url }}">

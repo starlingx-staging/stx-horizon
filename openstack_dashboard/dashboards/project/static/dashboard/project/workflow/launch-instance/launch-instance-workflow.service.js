@@ -23,10 +23,14 @@
   launchInstanceWorkflow.$inject = [
     'horizon.dashboard.project.workflow.launch-instance.basePath',
     'horizon.dashboard.project.workflow.launch-instance.step-policy',
-    'horizon.app.core.workflow.factory'
+    'horizon.app.core.workflow.factory',
+    '$http'
   ];
 
-  function launchInstanceWorkflow(basePath, stepPolicy, dashboardWorkflow) {
+  function launchInstanceWorkflow(basePath, stepPolicy, dashboardWorkflow, $http) {
+    // WRS: set X-CSRFToken in case CSRF_COOKIE_HTTPONLY is enabled
+    $http.defaults.headers.post["X-CSRFToken"] = $('input[name=csrfmiddlewaretoken]').val();
+
     return dashboardWorkflow({
       title: gettext('Launch Instance'),
 
@@ -113,6 +117,13 @@
           templateUrl: basePath + 'metadata/metadata.html',
           helpUrl: basePath + 'metadata/metadata.help.html',
           formName: 'launchInstanceMetadataForm'
+        },
+        {
+          id: 'advance',
+          title: gettext('Advanced Options'),
+          templateUrl: basePath + 'advance/advance.html',
+          helpUrl: basePath + 'advance/advance.help.html',
+          formName: 'launchInstanceAdvanceForm'
         }
       ],
 

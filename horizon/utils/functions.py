@@ -13,6 +13,7 @@
 import datetime
 import decimal
 import math
+import os
 import re
 
 from oslo_utils import units
@@ -111,8 +112,15 @@ def get_timezone(request):
     # Session and cookie store timezone as django_timezone.
     # In case there is no timezone neither in session nor in cookie,
     # use default value from settings file where it's called TIME_ZONE.
+
+    try:
+        realpath = os.readlink("/etc/localtime")
+        time_zone = realpath.lstrip("/usr/share/zoneinfo/")
+    except Exception:
+        time_zone = 'UTC'
+
     return get_config_value(request, 'django_timezone',
-                            getattr(settings, 'TIME_ZONE', 'UTC'))
+                            getattr(settings, 'TIME_ZONE', time_zone))
 
 
 def get_language(request):

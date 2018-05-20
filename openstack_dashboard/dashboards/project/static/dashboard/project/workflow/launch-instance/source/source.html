@@ -44,6 +44,7 @@
           <label translate>Delete Volume on Instance Delete</label><br/>
           <div class="btn-group">
             <label class="btn btn-default"
+                   ng-init="model.newInstanceSpec.vol_create = false"
                    ng-repeat="option in ctrl.toggleButtonOptions"
                    ng-model="model.newInstanceSpec.vol_delete_on_instance_delete"
                    uib-btn-radio="option.value">{$ ::option.label $}</label>
@@ -72,7 +73,12 @@
                  ng-required="true">
           <span class="help-block"
                 ng-show="launchInstanceSourceForm['volume-size'].$invalid">
-            {$ launchInstanceSourceForm['volume-size'].$error.validateNumberMin ? ctrl.minVolumeSizeError : ctrl.volumeSizeError $}
+              <div ng-if="launchInstanceSourceForm['volume-size'].$error.validateNumberMin">
+                  {$ ctrl.minVolumeSizeError $}
+              </div>
+              <div ng-if="!launchInstanceSourceForm['volume-size'].$error.validateNumberMin">
+                  {$ ctrl.volumeSizeError $}
+              </div>
           </span>
         </div>
       </div>

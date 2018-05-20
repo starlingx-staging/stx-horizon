@@ -11,6 +11,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2015 Wind River Systems, Inc.
+#
 
 from django.utils.translation import ugettext_lazy as _
 
@@ -39,6 +42,10 @@ class AdminEditImage(project_tables.EditImage):
 
     def allowed(self, request, image=None):
         return True
+
+
+class AdminLimitImage(tables.LimitAction):
+    verbose_name = _("Images")
 
 
 class UpdateMetadata(tables.LinkAction):
@@ -98,7 +105,7 @@ class AdminImagesTable(project_tables.ImagesTable):
         status_columns = ["status"]
         verbose_name = _("Images")
         table_actions = (AdminCreateImage, AdminDeleteImage,
-                         AdminImageFilterAction)
+                         AdminImageFilterAction, AdminLimitImage)
         row_actions = (AdminEditImage, UpdateMetadata, AdminDeleteImage)
-        columns = ('tenant', 'name', 'image_type', 'status', 'public',
+        columns = ('tenant', 'name', 'image_type', 'status', 'cache', 'public',
                    'protected', 'disk_format', 'size')

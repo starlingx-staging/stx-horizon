@@ -312,6 +312,8 @@ def get_resource_url(obj):
 
 class EventsTable(tables.DataTable):
 
+    event_id = tables.Column('id',
+                             verbose_name=_("Event Id"))
     logical_resource = tables.Column('resource_name',
                                      verbose_name=_("Stack Resource"),
                                      link=get_resource_url)
@@ -334,7 +336,7 @@ class EventsTable(tables.DataTable):
 
 
 class ResourcesUpdateRow(tables.Row):
-    ajax = True
+    # ajax = True
 
     def get_data(self, request, resource_name):
         try:

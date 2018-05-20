@@ -56,10 +56,22 @@ SERVER_DATA = """
             "private": [
                 {
                     "version": 4,
-                    "addr": "10.0.0.1"
+                    "addr": "10.0.0.1",
+                    "OS-EXT-IPS-MAC:mac_addr": "aa:aa:bb:bb:cc:dd"
+
                 }
             ]
         },
+        "nics": [
+            {"nic1":
+                {
+                    "mac_address": "aa:aa:bb:bb:cc:dd",
+                    "network": "private",
+                    "mtu": "1500",
+                    "port_id": "1"
+                }
+            }
+        ],
         "links": [
             {
                 "href": "%(host)s/v1.1/%(tenant_id)s/servers/%(server_id)s",
@@ -173,6 +185,14 @@ def data(TEST):
     TEST.hosts = utils.TestDataContainer()
     TEST.server_groups = utils.TestDataContainer()
 
+    server_group = server_groups.ServerGroup(
+        server_groups.ServerGroupsManager(None),
+        dict(id="41023e92-8008-4c8b-8059-7f2293ff3775",
+             name='test',
+             policies=['test'],
+             ))
+    TEST.server_groups.add(server_group)
+
     # Volumes
     volume = volumes.Volume(
         volumes.VolumeManager(None),
@@ -246,7 +266,7 @@ def data(TEST):
     flavor_2 = flavors.Flavor(flavors.FlavorManager(None),
                               {'id': "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
                                'name': 'm1.massive',
-                               'vcpus': 1000,
+                               'vcpus': 100,
                                'disk': 1024,
                                'ram': 10000,
                                'swap': 0,
@@ -305,6 +325,8 @@ def data(TEST):
                       instances='10',
                       injected_files='1',
                       cores='10',
+                      server_groups='10',
+                      server_group_members='10',
                       security_groups='10',
                       security_group_rules='20',
                       key_pairs=100,
@@ -378,7 +400,7 @@ def data(TEST):
                  "server_id": "2"})
     server_2 = servers.Server(servers.ServerManager(None),
                               json.loads(SERVER_DATA % vals)['server'])
-    vals.update({"name": u'\u4e91\u89c4\u5219',
+    vals.update({"name": "server_3",
                  "status": "ACTIVE",
                  "tenant_id": tenant3.id,
                 "server_id": "3"})
@@ -453,17 +475,22 @@ def data(TEST):
         {
             "service": {"host": "devstack001", "id": 3},
             "vcpus_used": 1,
+            "vcpus_by_node": '{"0": 1}',
+            "vcpus_used_by_node": '{"0": {"shared": 0, "dedicated": 1}}',
             "hypervisor_type": "QEMU",
             "local_gb_used": 20,
             "hypervisor_hostname": "devstack001",
             "memory_mb_used": 1500,
+            "memory_mb_used_by_node": '{"0": {"4k": 0, "2M": 750, "1G": 0}}',
             "memory_mb": 2000,
+            "memory_mb_by_node": '{"0": {"4k": 0, "2M": 1000, "1G": 0}}',
             "current_workload": 0,
             "vcpus": 1,
-            "cpu_info": '{"vendor": "Intel", "model": "core2duo",'
-                        '"arch": "x86_64", "features": ["lahf_lm"'
-                        ', "rdtscp"], "topology": {"cores": 1, "t'
-                        'hreads": 1, "sockets": 1}}',
+            "cpu_info": {"vendor": "Intel",
+                         "model": "core2duo",
+                         "arch": "x86_64",
+                         "features": ["lahf_lm", "rdtscp"],
+                         "topology": {"cores": 1, "threads": 1, "sockets": 1}},
             "running_vms": 1,
             "free_disk_gb": 9,
             "hypervisor_version": 1002000,
@@ -480,17 +507,22 @@ def data(TEST):
         {
             "service": {"host": "devstack002", "id": 4},
             "vcpus_used": 1,
+            "vcpus_by_node": '{"0": 1}',
+            "vcpus_used_by_node": '{"0": {"shared": 0, "dedicated": 1}}',
             "hypervisor_type": "QEMU",
             "local_gb_used": 20,
             "hypervisor_hostname": "devstack001",
             "memory_mb_used": 1500,
+            "memory_mb_used_by_node": '{"0": {"4k": 0, "2M": 750, "1G": 0}}',
             "memory_mb": 2000,
+            "memory_mb_by_node": '{"0": {"4k": 0, "2M": 1000, "1G": 0}}',
             "current_workload": 0,
             "vcpus": 1,
-            "cpu_info": '{"vendor": "Intel", "model": "core2duo",'
-                        '"arch": "x86_64", "features": ["lahf_lm"'
-                        ', "rdtscp"], "topology": {"cores": 1, "t'
-                        'hreads": 1, "sockets": 1}}',
+            "cpu_info": {"vendor": "Intel",
+                         "model": "core2duo",
+                         "arch": "x86_64",
+                         "features": ["lahf_lm", "rdtscp"],
+                         "topology": {"cores": 1, "threads": 1, "sockets": 1}},
             "running_vms": 1,
             "free_disk_gb": 9,
             "hypervisor_version": 1002000,
@@ -506,17 +538,22 @@ def data(TEST):
         {
             "service": {"host": "instance-host", "id": 5},
             "vcpus_used": 1,
+            "vcpus_by_node": '{"0": 1}',
+            "vcpus_used_by_node": '{"0": {"shared": 0, "dedicated": 1}}',
             "hypervisor_type": "QEMU",
             "local_gb_used": 20,
             "hypervisor_hostname": "devstack003",
             "memory_mb_used": 1500,
+            "memory_mb_used_by_node": '{"0": {"4k": 0, "2M": 750, "1G": 0}}',
             "memory_mb": 2000,
+            "memory_mb_by_node": '{"0": {"4k": 0, "2M": 1000, "1G": 0}}',
             "current_workload": 0,
             "vcpus": 1,
-            "cpu_info": '{"vendor": "Intel", "model": "core2duo",'
-                        '"arch": "x86_64", "features": ["lahf_lm"'
-                        ', "rdtscp"], "topology": {"cores": 1, "t'
-                        'hreads": 1, "sockets": 1}}',
+            "cpu_info": {"vendor": "Intel",
+                         "model": "core2duo",
+                         "arch": "x86_64",
+                         "features": ["lahf_lm", "rdtscp"],
+                         "topology": {"cores": 1, "threads": 1, "sockets": 1}},
             "running_vms": 1,
             "free_disk_gb": 9,
             "hypervisor_version": 1002000,

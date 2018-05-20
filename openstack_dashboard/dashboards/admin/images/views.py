@@ -15,6 +15,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2015 Wind River Systems, Inc.
+#
 
 import logging
 
@@ -55,6 +58,9 @@ class IndexView(tables.DataTableView):
     def needs_filter_first(self, table):
         return self._needs_filter_first
 
+    def get_limit_count(self, table):
+        return self._limit
+
     def get_data(self):
         images = []
 
@@ -82,20 +88,25 @@ class IndexView(tables.DataTableView):
         else:
             marker = self.request.GET.get(
                 project_tables.AdminImagesTable._meta.pagination_param, None)
+        limit = self.request.GET.get(
+            project_tables.AdminImagesTable._meta.limit_param, None)
         reversed_order = prev_marker is not None
         try:
             images, self._more, self._prev = api.glance.image_list_detailed(
                 self.request,
                 marker=marker,
+                limit=limit,
                 paginate=True,
                 filters=filters,
                 sort_dir='asc',
                 sort_key='name',
                 reversed_order=reversed_order)
+            self._limit = limit
 
         except Exception:
             self._prev = False
             self._more = False
+            self._limit = None
             msg = _('Unable to retrieve image list.')
             exceptions.handle(self.request, msg)
         if images:

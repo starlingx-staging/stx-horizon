@@ -15,6 +15,13 @@
 /* Namespace for core functionality related to DataTables. */
 horizon.datatables = {
   update: function () {
+    // WRS: Performance optimization - disable row refresh to reduce
+    // platform load since we already have periodic page refresh.
+    return;
+    if (horizon.datatables.timeout) {
+      clearTimeout(horizon.datatables.timeout);
+      horizon.datatables.timeout = false;
+    }
     var $rows_to_update = $('tr.warning.ajax-update');
     var $table = $rows_to_update.closest('table');
     var interval = $rows_to_update.attr('data-update-interval');
@@ -27,7 +34,7 @@ horizon.datatables = {
     // Do not update this row if the action column is expanded
     if ($rows_to_update.find('.actions_column .btn-group.open').length) {
       // Wait and try to update again in next interval instead
-      setTimeout(horizon.datatables.update, interval);
+        horizon.datatables.timeout = setTimeout(horizon.datatables.update, interval);
       // Remove interval decay, since this will not hit server
       $table.removeAttr('decay_constant');
       return;
@@ -44,24 +51,7 @@ horizon.datatables = {
             switch (jqXHR.status) {
               // A 404 indicates the object is gone, and should be removed from the table
               case 404:
-                // Update the footer count and reset to default empty row if needed
-                var row_count, colspan, template, params;
-
-                // existing count minus one for the row we're removing
-                row_count = horizon.datatables.update_footer_count($table, -1);
-
-                if(row_count === 0) {
-                  colspan = $table.find('.table_column_header th').length;
-                  template = horizon.templates.compiled_templates["#empty_row_template"];
-                  params = {
-                      "colspan": colspan,
-                      no_items_label: gettext("No items to display.")
-                  };
-                  var empty_row = template.render(params);
-                  $row.replaceWith(empty_row);
-                } else {
-                  $row.remove();
-                }
+                horizon.datatables.remove_row($table, $row);
                 // Reset tablesorter's data cache.
                 $table.trigger("update");
                 // Enable launch action if quota is not exceeded
@@ -85,8 +75,12 @@ horizon.datatables = {
                 .addClass('progress progress-striped active')
                 .appendTo($container);
 
+              // CGCS: incomplete progress bar addition
+              $width = $new_row.find('[percent]:first').attr('percent') || "100%";
+
               $(document.createElement('div'))
                 .addClass('progress-bar')
+                .css("width", $width)
                 .appendTo($progress);
 
               // if action/confirm is required, show progress-bar with "?"
@@ -99,17 +93,16 @@ horizon.datatables = {
               $new_row.find("td.warning:last").prepend($container);
             }
 
-            // Only replace row if the html content has changed
-            if($new_row.html() !== $row.html()) {
+            // CGCS: compare the rows without the checkbox row since it has
+            // new UUIDs everytime (can't compare just text since classes are important)
+            $row_cmp = $row.clone();
+            $row_cmp.find('.themable-checkbox').remove();
+            $new_row_cmp = $new_row.clone();
+            $new_row_cmp.find('.themable-checkbox').remove();
 
-              // Directly accessing the checked property of the element
-              // is MUCH faster than using jQuery's helper method
-              var $checkbox = $row.find('.table-row-multi-select');
-              if($checkbox.length && $checkbox[0].checked) {
-                // Preserve the checkbox if it's already clicked
-                $new_row.find('.table-row-multi-select').prop('checked', true);
-              }
-              $row.replaceWith($new_row);
+            // Only replace row if the html content has changed
+            if($new_row_cmp.html() !== $row_cmp.html()) {
+              horizon.datatables.replace_row($row, $new_row);
 
               // TODO(matt-borland, tsufiev): ideally we should solve the
               // problem with not-working angular actions in a content added
@@ -143,7 +136,7 @@ horizon.datatables = {
       var next_poll = interval * decay_constant;
       // Limit the interval to 30 secs
       if(next_poll > 30 * 1000) { next_poll = 30 * 1000; }
-      setTimeout(horizon.datatables.update, next_poll);
+      horizon.datatables.timeout = setTimeout(horizon.datatables.update, next_poll);
     });
   },
 
@@ -162,6 +155,10 @@ horizon.datatables = {
           // Only replace row if the html content has changed
           if($new_action.html() != $action.html()) {
             $action.replaceWith($new_action);
+            // Recompile if it has AngularJS controller
+            if(typeof($new_action.attr('ng-controller')) !== "undefined") {
+              recompileAngularContent($new_action);
+            }
           }
         }
       });
@@ -171,17 +168,27 @@ horizon.datatables = {
   validate_button: function ($form, disable_button) {
     // Enable or disable table batch action buttons and more actions dropdown based on row selection.
     $form = $form || $(".table_wrapper > form");
-    $form.each(function () {
-      var $this = $(this);
-      var $action_buttons = $this.find('.table_actions button[data-batch-action="true"]');
-      var $more_dropdown = $this.find('.table_actions_menu > a.dropdown-toggle');
-        if (disable_button === undefined) {
-          var checkboxes = $this.find(".table-row-multi-select");
-          var checked = checkboxes.filter(":checked");
-          disable_button = (checkboxes.length > 0 && checked.length == 0);
+    $("table.datatable thead .multi_select_column").each(function (i, thead) {
+      var table = $(thead).parents("table");
+      var checkboxes = $(table).find('tbody :checkbox');
+      var buttons = $(table).find('.table_actions button[data-batch-action="true"]');
+      var menu = $(table).find('.table_actions .table_actions_menu > a.dropdown-toggle');
+
+      if(!checkboxes.length) {
+        if(menu.length) {
+          menu.hide();
+        }
+        buttons.hide();
+        return;
       }
-      $action_buttons.toggleClass("disabled", disable_button);
-      $more_dropdown.toggleClass("disabled", disable_button);
+      buttons.removeClass("disabled");
+      buttons.show();
+      menu.removeClass("disabled");
+      menu.show();
+      if(!checkboxes.filter(":checked").length) {
+        buttons.addClass("disabled");
+        menu.addClass("disabled");
+      }
     });
   },
 
@@ -254,6 +261,7 @@ horizon.datatables.confirm = function(action) {
   var name_array = [];
   var action_string = $action.text();
   var help_text = $action.attr("help_text") || "";
+  var cancel_string, confirm_class;
   var name_string = "";
 
   // Assume that we are going from the "Network Topology" tab
@@ -314,23 +322,41 @@ horizon.datatables.confirm = function(action) {
 
   var body;
   try {
-    body = $(template.render(params)).html();
+    // Check for confirm message on the action.get_confirm_message,
+    if ($action.is('[data-confirm]')) {
+      body = $action.attr('data-confirm');
+    }
+    // Check for confirm message on the table.get_action_confirm(datum)
+    else if ($action.closest('tr').is('[data-confirm]')) {
+      body = body = $action.closest('tr').attr('confirm');
+    }
+    // Default to generic confirmation message
+    else {
+      body = $(template.render(params)).html();
+    }
   } catch (e) {
     body = name_string + gettext("Please confirm your selection. ") + help_text;
   }
 
-  var modal = horizon.modals.create(title, body, action_string);
-  modal.modal();
+  cancel_string = gettext("Cancel")
+  if($action.is('[data-confirm-class]')) {
+    confirm_class = $action.attr('data-confirm-class');
+  }
+  // CGCS: get form before confirm modal making sure that form is valid
+  //       as it may get changed after confirm modal is created
+  $form = $action.closest('form');
+
+  horizon.modals.confirm = horizon.modals.create(title, body, action_string, cancel_string, confirm_class);
+  horizon.modals.confirm.modal();
 
   if ($uibModal_parent.length) {
-    var child_backdrop = modal.next('.modal-backdrop');
+    var child_backdrop = horizon.modals.confirm.next('.modal-backdrop');
     // re-arrange z-index for these stacking modal
     child_backdrop.css('z-index', $uibModal_parent.css('z-index')+10);
-    modal.css('z-index', child_backdrop.css('z-index')+10);
+    horizon.modals.confirm.css('z-index', child_backdrop.css('z-index')+10);
   }
 
-  modal.find('.btn-primary').click(function () {
-    var $form = $action.closest('form');
+  horizon.modals.confirm.find('.btn-submit').click(function (evt) {
     var el = document.createElement("input");
     el.type = 'hidden';
     el.name = $action.attr('name');
@@ -339,12 +365,13 @@ horizon.datatables.confirm = function(action) {
       .append(el)
       .submit();
 
-    modal.modal('hide');
+    horizon.modals.confirm.modal('hide');
+    horizon.modals.confirm = null;
     horizon.modals.modal_spinner(gettext("Working"));
     return false;
   });
 
-  return modal;
+  return horizon.modals.confirm;
 };
 
 $.tablesorter.addParser({
@@ -448,6 +475,87 @@ $.tablesorter.addParser({
   type: 'numeric'
 });
 
+$.tablesorter.addParser({
+    id: 'portnameSorter',
+    is: function(s) {
+
+    },
+    format: function(s) {
+      var ethNum = s.replace( /^\D+/g, '');
+      return parseInt(ethNum, 10);
+    },
+    type: 'numeric'
+});
+
+$.tablesorter.addParser({
+
+
+    // set a unique id
+    id: 'uptimeSorter',
+    is: function(s) {
+        // Not an auto-detected parser
+        return false;
+    },
+    // compare int values
+    format: function(s) {
+
+    var timesSec = new Array();
+    timesSec[0] = 31104000;
+    timesSec[1] = 2592000;
+    timesSec[2] = 86400;
+    timesSec[3] = 3600;
+    timesSec[4] = 60;
+
+     var times = s.split(/[\s,]+/);
+
+      if ((times[1].toUpperCase() == "YEARS") || (times[1].toUpperCase() == "YEAR")) {
+         var years = times[0].replace( /[^\d.]/g, '' );
+         if (times.length > 2){
+            var months = times[2].replace( /[^\d.]/g, '' );
+            var uptime_date = parseInt(years) * timesSec[0]  + parseInt(months) * timesSec[1];
+         } else {
+            var uptime_date = parseInt(years) * timesSec[0];
+         }
+      } else if ((times[1].toUpperCase() == "MONTHS") || (times[1].toUpperCase() == "MONTH")) {
+         var months = times[0].replace( /[^\d.]/g, '' );
+         if (times.length > 2){
+            var days = times[2].replace( /[^\d.]/g, '' );
+            var uptime_date = parseInt(months) * timesSec[1] + parseInt(days) * timesSec[2];
+         } else {
+            var uptime_date = parseInt(months) * timesSec[1];
+         }
+
+      } else if ((times[1].toUpperCase() == "DAYS") || (times[1].toUpperCase() == "DAY")){
+          var days = times[0].replace( /[^\d.]/g, '' );
+	  if (times.length > 2){
+            var hours = times[2].replace( /[^\d.]/g, '' );
+            var uptime_date = parseInt(days) * timesSec[2] + parseInt(hours) * timesSec[3];
+           } else {
+            var uptime_date = parseInt(days) * timesSec[2];
+        }
+
+      } else if ((times[1].toUpperCase() == "HOURS") || (times[1].toUpperCase() == "HOUR")){
+	var hours = times[0].replace( /[^\d.]/g, '' );
+        if (times.length > 2){
+          var minuites = times[2].replace( /[^\d.]/g, '' );
+          var uptime_date = parseInt(hours) * timesSec[3] + parseInt(minuites) * timesSec[4];
+
+        } else {
+          var uptime_date = parseInt(hours) * timesSec[3];
+        }
+
+
+      } else {
+          var minuites = times[0].replace( /[^\d.]/g, '' );
+	  var uptime_date = parseInt(minuites) * timesSec[4];
+      }
+
+     return uptime_date;
+
+    },
+    type: 'numeric'
+});
+
 horizon.datatables.disable_buttons = function() {
   $("table .table_actions").on("click", ".btn.disabled", function(event){
     event.preventDefault();
@@ -511,7 +619,7 @@ horizon.datatables.update_footer_count = function (el, modifier) {
 horizon.datatables.add_no_results_row = function (table) {
   // Add a "no results" row if there are no results.
   var template = horizon.templates.compiled_templates["#empty_row_template"];
-  if (!table.find("tbody tr:visible").length && typeof(template) !== "undefined") {
+  if (!table.find("tbody tr:visible").length && typeof(template) !== "undefined" && table.find("tbody:visible").length ) {
     var colspan = table.find('.table_column_header th').length;
     var params = {
         "colspan": colspan,
@@ -523,6 +631,35 @@ horizon.datatables.add_no_results_row = function (table) {
 
 horizon.datatables.remove_no_results_row = function (table) {
   table.find("tr.empty").remove();
+};
+
+horizon.datatables.replace_row = function (old_row, new_row) {
+    // Directly accessing the checked property of the element
+    // is MUCH faster than using jQuery's helper method
+    var $checkbox = old_row.find('.table-row-multi-select');
+    if($checkbox.length && $checkbox[0].checked) {
+      // Preserve the checkbox if it's already clicked
+      new_row.find('.table-row-multi-select').prop('checked', true);
+    }
+    new_row.addClass("updated");
+    old_row.replaceWith(new_row);
+};
+
+horizon.datatables.remove_row = function (table, row) {
+    // Update the footer count and reset to default empty row if needed
+    var row_count, colspan, template, params, empty_row;
+
+    // existing count minus one for the row we're removing
+    row_count = horizon.datatables.update_footer_count(table, -1);
+    if(row_count === 0) {
+        colspan = table.find('th[colspan]').attr('colspan');
+        template = horizon.templates.compiled_templates["#empty_row_template"];
+        params = {"colspan": colspan};
+        empty_row = template.render(params);
+        row.replaceWith(empty_row);
+    } else {
+        row.remove();
+    }
 };
 
 /*
@@ -537,8 +674,6 @@ horizon.datatables.set_table_sorting = function (parent) {
   $(parent).find("table.datatable").each(function () {
     var $table = $(this),
       header_options = {};
-    // Disable if not sortable or has <= 1 item
-    if ($table.find('tbody tr').not('.empty').length > 1){
       $table.find("thead th[class!='table_header']").each(function (i) {
         var $th = $(this);
         if (!$th.hasClass('sortable')) {
@@ -553,6 +688,10 @@ horizon.datatables.set_table_sorting = function (parent) {
           header_options[i] = {sorter: 'timestampSorter'};
         } else if ($th.data('type') == 'uuid'){
           header_options[i] = {sorter: 'uuid'};
+        } else if ($th.data('type') == 'uptime'){
+            header_options[i] = {sorter: 'uptimeSorter'};
+        } else if ($th.data('type') == 'portname'){
+            header_options[i] = {sorter: 'portnameSorter'};
         }
       });
       $table.tablesorter({
@@ -564,7 +703,6 @@ horizon.datatables.set_table_sorting = function (parent) {
         headerTemplate: '{content}{icon}',
         cssIcon: 'table-sort-indicator'
       });
-    }
   });
 };
 
@@ -672,6 +810,303 @@ horizon.datatables.set_table_fixed_filter = function (parent) {
     });
   });
 };
+horizon.datatables.set_table_fixedwithquery_filter = function (parent) {
+
+  bind_buttons = function() {
+
+          grpIt = function(srchstr, grpNo) {
+                newSrch = srchstr.replace("div.table_filter_fixedwithquery","div.table_filter_fixedwithquery"+grpNo);
+                return newSrch;
+          }
+
+          $(parent).find('table.datatable').each(function (index, elm) {
+
+            var maxBtnGroup = 0;
+
+            getMaxButtonGroups = function(elm) {
+                var _maxBtnGroup = 0;
+                while ( ($(elm).find(grpIt("div.table_filter_fixedwithquery button",_maxBtnGroup)).length) > 0) {
+                    _maxBtnGroup++;
+                }
+                return _maxBtnGroup
+            }
+
+            maxBtnGroup = getMaxButtonGroups(elm);
+
+            getValueFromGroup = function(grpNo, elm) {
+                var val = $(elm).find(grpIt("div.table_filter_fixedwithquery button.active",grpNo)).val();
+                return val;
+            }
+
+            getAllValuesFromGroups = function(_maxBtnGroup, elm) {
+                values = [];
+                for (var grpNo=0;grpNo<_maxBtnGroup;grpNo++) {
+                    values.push( getValueFromGroup(grpNo, elm) );
+                }
+                result = values.join("|");
+                return result;
+            }
+
+            // define the group binding functions
+            createGrpBindFunction = function(grpNo, _maxBtnGroup, elm) {
+               return function() {
+
+                        $(elm).on('click', grpIt('div.table_filter_fixedwithquery button',grpNo), function(evt) {
+                          // Remove active class from all buttons
+                          var _grNo = grpNo;
+                          $(elm).find(grpIt('div.table_filter_fixedwithquery button',grpNo)).each(function(index, btn) {
+                            $(btn).removeClass('active');
+                          });
+                          var table = $(elm);
+
+                          // hilite active button and indicate busy by changing its cursor
+
+                          $(this).addClass('active');
+                          $(this).css("cursor","wait");
+
+                          //var selectedValue = $(this).val();
+                          //var selectedValue = getValueFromGroup(grpNo);
+                          var selectedValue = getAllValuesFromGroups(_maxBtnGroup, elm);
+
+                          // ensure selectedValue sent down to server on form submit
+                          $('div.table_filter_fixedwithquery_groups input[type="hidden"]').val(selectedValue)
+
+                          formElm = this.closest('form');
+
+                          formElm.submit();
+
+                          evt.preventDefault();
+                          return false;
+                        });
+                }
+            }
+            // now instantiate one group binding function per group and then run it
+            for (var grpNo=0;grpNo<maxBtnGroup;grpNo++) {
+                createGrpBindFunction(grpNo,maxBtnGroup,elm)();
+            }
+
+          });
+  }
+
+  bind_buttons();
+
+  // Note: This code was mostly copied from function set_table_query_filter
+  $(parent).find('table.datatable').each(function (index, elm) {
+
+    var input = $($(elm).find('div.table_search_fixedwithquery.client input')),
+        table_selector;
+    if (input.length > 0) {
+
+      // Disable server-side searching if we have client-side searching since
+      // (for now) the client-side is actually superior. Server-side filtering
+      // remains as a noscript fallback.
+      // TODO(gabriel): figure out an overall strategy for making server-side
+      // filtering the preferred functional method.
+      input.on('keypress', function (evt) {
+        if (evt.keyCode === 13) {
+          return false;
+        }
+      });
+      input.next('button.btn span.search-icon').on('click keypress', function (evt) {
+        return false;
+      });
+
+      // Enable the client-side searching.
+      table_selector = 'table#' + $(elm).attr('id');
+
+      var qs = input.quicksearch(table_selector + ' tbody tr', {
+        'delay': 300,
+        'loader': 'span.loading',
+        'bind': 'keyup click',
+        'show': this.show,
+        'hide': this.hide,
+        onBefore: function () {
+          var table = $(table_selector);
+          horizon.datatables.remove_no_results_row(table);
+        },
+        onAfter: function () {
+          var template, table, colspan, params;
+          table = $(table_selector);
+          horizon.datatables.update_footer_count(table);
+          horizon.datatables.add_no_results_row(table);
+          horizon.datatables.fix_row_striping(table);
+        },
+        prepareQuery: function (val) {
+          return new RegExp(val, "i");
+        },
+        testQuery: function (query, txt, _row) {
+          return query.test($(_row).find('td:not(.hidden):not(.actions_column)').text());
+        }
+      });
+      horizon.datatables.qs[$(elm).attr('id')] = qs;
+    }
+  });
+
+
+};
+
+
+horizon.datatables.set_table_limit = function (parent) {
+  $(parent).find('table').each(function (index, elm) {
+    var limits = $(elm).find('div.table_limit ul.dropdown-menu > li > a').on('click', function(e) {
+        e.preventDefault();
+
+        var $limit = $(this);
+        var $table = $limit.closest('table');
+
+        var pagination_param = $table.data('pagination-param');
+        var limit_param = $table.data('limit-param');
+        var count = $limit.data('count');
+        var title = $limit.attr('title');
+
+        window.location.search = jQuery.query.remove(pagination_param).set(limit_param, count);
+    });
+  });
+};
+
+// Auto page refresh handler
+horizon.datatables.refresh = function (html) {
+    var refreshed = true;
+
+    refresh_start_time = new Date().getTime();
+
+    $(html).find('table.datatable').each(function(index, table) {
+        var $new_table = $(this);
+        var $old_table = $('table#' + $new_table.attr('id'));
+        var changed = false;
+        var row_changed = false;
+
+        // Do not update the table if an action column is expanded
+        if ($old_table.find('.actions_column .btn-group.open').length) {
+            return true;
+        }
+
+        if (horizon.modals.confirm && horizon.modals.confirm.is(":visible")) {
+            return true;
+        }
+
+        // Cleanup updated state
+        $old_table.find('tr.updated').removeClass('updated flash');
+
+        no_results_row_removed = false;
+
+        // Remove old entries that no longer exist
+        $old_table.find('tbody > tr[id]').not('.empty').each(function(index, row) {
+            var $old_row = $(this);
+            var $new_row = $new_table.find('tr#' + $old_row.attr('id').replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~]/g, "\\$&"));
+
+            if (!$new_row.length) {
+                // Remove stale entry from table
+                $old_row.remove();
+                changed = true;
+            }
+        });
+
+        // Insert or update new entries
+        $($new_table.find('tbody > tr[id]').get().reverse()).not('.empty').each(function(index, row) {
+            row_changed = false;
+            var $new_row = $(this);
+            var $old_row = $old_table.find('tr#' + $new_row.attr('id').replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~]/g, "\\$&"));
+
+            if ($old_row.length) {
+                // Only replace row if the html content has changed
+                if($new_row.text() != $old_row.text()) {
+                    horizon.datatables.replace_row($old_row, $new_row);
+                    changed = true;
+                    row_changed = true;
+                }
+            } else {
+                // Append the new row since it does not exist in the current table
+                if (!no_results_row_removed) {
+                   no_results_row_removed = true;
+                   horizon.datatables.remove_no_results_row($old_table);
+                }
+                $new_row.addClass("updated");
+                $old_table.find('tbody').prepend($new_row);
+                changed = true;
+                row_changed = true;
+            }
+            if (row_changed) {
+                // CGCS: The following code is from the upstream row update
+                // functionality and must be kept up to date
+                if ($new_row.hasClass('warning')) {
+                  var $container = $(document.createElement('div'))
+                    .addClass('progress-text horizon-loading-bar');
+
+                  var $progress = $(document.createElement('div'))
+                    .addClass('progress progress-striped active')
+                    .appendTo($container);
+
+                  // CGCS: incomplete progress bar addition
+                  $width = $new_row.find('[percent]:first').attr('percent') || "100%";
+
+                  $(document.createElement('div'))
+                    .addClass('progress-bar')
+                    .css("width", $width)
+                    .appendTo($progress);
+
+                  // if action/confirm is required, show progress-bar with "?"
+                  // icon to indicate user action is required
+                  if ($new_row.find('.btn-action-required').length > 0) {
+                    $(document.createElement('span'))
+                      .addClass('fa fa-question-circle progress-bar-text')
+                      .appendTo($container);
+                  }
+                  $new_row.find("td.warning:last").prepend($container);
+                }
+            }
+        });
+
+        // Update the table actions (which can be affected by system state or quotas)
+        $new_table.find('.table_actions').children('.btn').each(function(index, action) {
+            var $new_action = $(this);
+            var $old_action = $old_table.find('#' + $new_action.attr('id'));
+            if (!$new_action.length || !$old_action.length) {
+                return true;
+            }
+            if ($new_action[0].outerHTML != $old_action[0].outerHTML) {
+                $old_action.replaceWith($new_action);
+                changed = true;
+            }
+        });
+
+        // Update table state if the table has been modified
+        if (changed) {
+
+            row_count = horizon.datatables.update_footer_count($old_table);
+            if (row_count==0) {
+               horizon.datatables.add_no_results_row($old_table);
+            }
+
+            // Reset tablesorter's data cache.
+            $old_table.trigger("update");
+            horizon.datatables.update();
+            horizon.datatables.fix_row_striping($old_table);
+
+            // Reset quicksearch filter cache.
+            if ($new_table.attr('id') in horizon.datatables.qs) {
+                horizon.datatables.qs[$new_table.attr('id')].cache();
+            }
+
+            // Revalidate the button check for the updated table
+            horizon.datatables.validate_button();
+
+            if($old_table.find('[ng-controller]').length) {
+              recompileAngularContent($old_table);
+            }
+
+            // Flash updated rows
+            $old_table.find('tr.updated').addClass("flash");
+        }
+    });
+
+    refreshed_elapsed_time = new Date().getTime() - refresh_start_time;
+    // uncomment to debug performance on browser log
+    // Don't let this method take more than 1.5 sec 1500 millisecs
+    // console.log("refresh elapsed time = "+ refreshed_elapsed_time);
+
+    return refreshed;
+};
 
 horizon.addInitFunction(horizon.datatables.init = function() {
   horizon.datatables.validate_button();
@@ -688,13 +1123,16 @@ horizon.addInitFunction(horizon.datatables.init = function() {
   horizon.datatables.set_table_sorting($body);
   horizon.datatables.set_table_query_filter($body);
   horizon.datatables.set_table_fixed_filter($body);
+  horizon.datatables.set_table_fixedwithquery_filter($('body'));
   horizon.datatables.disable_actions_on_submit();
+  horizon.datatables.set_table_limit($('body'));
 
   // Also apply on tables in modal views.
   horizon.modals.addModalInitFunction(horizon.datatables.add_table_checkboxes);
   horizon.modals.addModalInitFunction(horizon.datatables.set_table_sorting);
   horizon.modals.addModalInitFunction(horizon.datatables.set_table_query_filter);
   horizon.modals.addModalInitFunction(horizon.datatables.set_table_fixed_filter);
+  horizon.modals.addModalInitFunction(horizon.datatables.set_table_fixedwithquery_filter);
   horizon.modals.addModalInitFunction(horizon.datatables.initialize_table_tooltips);
   horizon.modals.addModalInitFunction(function modalInitActionDisable(modal) {
     horizon.datatables.disable_actions_on_submit($(modal).find(".table_wrapper > form"));
@@ -705,12 +1143,26 @@ horizon.addInitFunction(horizon.datatables.init = function() {
   horizon.tabs.addTabLoadFunction(horizon.datatables.set_table_sorting);
   horizon.tabs.addTabLoadFunction(horizon.datatables.set_table_query_filter);
   horizon.tabs.addTabLoadFunction(horizon.datatables.set_table_fixed_filter);
+  horizon.tabs.addTabLoadFunction(horizon.datatables.set_table_fixedwithquery_filter);
+  horizon.tabs.addTabLoadFunction(horizon.datatables.set_table_limit);
   horizon.tabs.addTabLoadFunction(horizon.datatables.initialize_checkboxes_behavior);
   horizon.tabs.addTabLoadFunction(horizon.datatables.initialize_table_tooltips);
   horizon.tabs.addTabLoadFunction(function(tab) {
     horizon.datatables.validate_button($(tab).find(".table_wrapper > form"));
     horizon.datatables.disable_actions_on_submit($(tab).find(".table_wrapper > form"));
   });
+  if ($('table.datatable').length > 0) {
+      // Register callback handler to update the tables on page refresh
+      horizon.refresh.addRefreshFunction(horizon.datatables.refresh);
+  }
+  else {
+    horizon.tabs.addTabLoadFunction(function(tab) {
+      if ($('table.datatable').length > 0) {
+        // Register callback handler to update the tables on page refresh
+        horizon.refresh.addRefreshFunction(horizon.datatables.refresh);
+      }
+    });
+  }
 
   horizon.datatables.update();
 });

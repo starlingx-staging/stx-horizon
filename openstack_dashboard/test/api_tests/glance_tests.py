@@ -325,6 +325,7 @@ class GlanceApiTests(test.APITestCase):
         res_types = api.glance.metadefs_resource_types_list(self.request)
         self.assertItemsEqual(res_types, [])
 
+    @override_settings(OPENSTACK_ENDPOINT_TYPE="publicURL")
     def _test_image_create_external_upload(self, api_version=2):
         expected_image = self.images.first()
         service = base.get_service_from_catalog(self.service_catalog, 'image')

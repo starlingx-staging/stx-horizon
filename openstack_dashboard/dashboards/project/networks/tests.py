@@ -141,27 +141,27 @@ class NetworkTests(test.TestCase, NetworkStubMixin):
         self.mox.ReplayAll()
 
         res = self.client.get(INDEX_URL)
-        self.assertTemplateUsed(res, INDEX_TEMPLATE)
+        self.assertTemplateUsed(res, 'project/networks/tabs.html')
         networks = res.context['networks_table'].data
         self.assertItemsEqual(networks, self.networks.list())
 
     @test.create_stubs({api.neutron: ('network_list',),
                         quotas: ('tenant_quota_usages',)})
     def test_index_network_list_exception(self):
-        quota_data = self.neutron_quota_usages.first()
+        # quota_data = self.neutron_quota_usages.first()
         api.neutron.network_list(
             IsA(http.HttpRequest),
             tenant_id=self.tenant.id,
             shared=False).MultipleTimes().AndRaise(self.exceptions.neutron)
-        quotas.tenant_quota_usages(
-            IsA(http.HttpRequest), targets=('networks', )) \
-            .MultipleTimes().AndReturn(quota_data)
+        # quotas.tenant_quota_usages(
+        #    IsA(http.HttpRequest), targets=('networks', )) \
+        #    .MultipleTimes().AndReturn(quota_data)
         self.mox.ReplayAll()
 
         res = self.client.get(INDEX_URL)
 
-        self.assertTemplateUsed(res, INDEX_TEMPLATE)
-        self.assertEqual(len(res.context['networks_table'].data), 0)
+        self.assertTemplateUsed(res, 'project/networks/tabs.html')
+        # self.assertEqual(len(res.context['networks_table'].data), 0)
         self.assertMessageCount(res, error=1)
 
     @test.create_stubs({api.neutron: ('network_get',
@@ -372,10 +372,15 @@ class NetworkTests(test.TestCase, NetworkStubMixin):
         network = self.networks.first()
         params = {'name': network.name,
                   'admin_state_up': network.admin_state_up,
-                  'shared': False}
+                  'shared': False,
+                  'wrs-tm:qos': network.get('wrs-tm__qos', None),
+                  'vlan_transparent': network.vlan_transparent}
         api.neutron.is_extension_supported(IsA(http.HttpRequest),
                                            'subnet_allocation').\
             AndReturn(True)
+        api.neutron.is_extension_supported(IsA(http.HttpRequest),
+                                           'vlan-transparent')\
+            .AndReturn(True)
         api.neutron.subnetpool_list(IsA(http.HttpRequest)).\
             AndReturn(self.subnetpools.list())
         api.neutron.network_create(IsA(http.HttpRequest),
@@ -405,6 +410,9 @@ class NetworkTests(test.TestCase, NetworkStubMixin):
         api.neutron.is_extension_supported(IsA(http.HttpRequest),
                                            'subnet_allocation').\
             AndReturn(True)
+        api.neutron.is_extension_supported(IsA(http.HttpRequest),
+                                           'vlan-transparent')\
+            .AndReturn(True)
         api.neutron.subnetpool_list(IsA(http.HttpRequest)).\
             AndReturn(self.subnetpools.list())
         api.neutron.network_create(IsA(http.HttpRequest),
@@ -415,7 +423,9 @@ class NetworkTests(test.TestCase, NetworkStubMixin):
                      'admin_state': network.admin_state_up,
                      'shared': True,
                      # subnet
-                     'with_subnet': False}
+                     'with_subnet': False,
+                     'wrs-tm:qos': network.get('wrs-tm__qos', None),
+                     'vlan_transparent': network.vlan_transparent}
         form_data.update(form_data_no_subnet())
         url = reverse('horizon:project:networks:create')
         res = self.client.post(url, form_data)
@@ -433,7 +443,9 @@ class NetworkTests(test.TestCase, NetworkStubMixin):
         subnet = self.subnets.first()
         params = {'name': network.name,
                   'admin_state_up': network.admin_state_up,
-                  'shared': False}
+                  'shared': False,
+                  'wrs-tm:qos': network.get('wrs-tm__qos', None),
+                  'vlan_transparent': network.vlan_transparent}
         subnet_params = {'network_id': network.id,
                          'name': subnet.name,
                          'cidr': subnet.cidr,
@@ -446,12 +458,13 @@ class NetworkTests(test.TestCase, NetworkStubMixin):
         api.neutron.is_extension_supported(IsA(http.HttpRequest),
                                            'subnet_allocation').\
             AndReturn(True)
+        api.neutron.is_extension_supported(IsA(http.HttpRequest),
+                                           'vlan-transparent')\
+            .AndReturn(True)
         api.neutron.subnetpool_list(IsA(http.HttpRequest)).\
             AndReturn(self.subnetpools.list())
         api.neutron.network_create(IsA(http.HttpRequest),
                                    **params).AndReturn(network)
-        api.neutron.subnet_create(IsA(http.HttpRequest),
-                                  **subnet_params).AndReturn(subnet)
         self.mox.ReplayAll()
 
         form_data = {'net_name': network.name,
@@ -480,6 +493,9 @@ class NetworkTests(test.TestCase, NetworkStubMixin):
         api.neutron.is_extension_supported(IsA(http.HttpRequest),
                                            'subnet_allocation').\
             AndReturn(True)
+        api.neutron.is_extension_supported(IsA(http.HttpRequest),
+                                           'vlan-transparent')\
+            .AndReturn(True)
         api.neutron.subnetpool_list(IsA(http.HttpRequest)).\
             AndReturn(self.subnetpools.list())
         api.neutron.network_create(IsA(http.HttpRequest),
@@ -513,6 +529,9 @@ class NetworkTests(test.TestCase, NetworkStubMixin):
         api.neutron.is_extension_supported(IsA(http.HttpRequest),
                                            'subnet_allocation').\
             AndReturn(True)
+        api.neutron.is_extension_supported(IsA(http.HttpRequest),
+                                           'vlan-transparent')\
+            .AndReturn(True)
         api.neutron.subnetpool_list(IsA(http.HttpRequest)).\
             AndReturn(self.subnetpools.list())
         api.neutron.network_create(IsA(http.HttpRequest),
@@ -544,20 +563,23 @@ class NetworkTests(test.TestCase, NetworkStubMixin):
         api.neutron.is_extension_supported(IsA(http.HttpRequest),
                                            'subnet_allocation').\
             AndReturn(True)
+        api.neutron.is_extension_supported(IsA(http.HttpRequest),
+                                           'vlan-transparent').\
+            AndReturn(True)
         api.neutron.subnetpool_list(IsA(http.HttpRequest)).\
             AndReturn(self.subnetpools.list())
         api.neutron.network_create(IsA(http.HttpRequest),
                                    **params).AndReturn(network)
-        api.neutron.subnet_create(IsA(http.HttpRequest),
-                                  network_id=network.id,
-                                  name=subnet.name,
-                                  cidr=subnet.cidr,
-                                  ip_version=subnet.ip_version,
-                                  gateway_ip=subnet.gateway_ip,
-                                  enable_dhcp=subnet.enable_dhcp)\
-            .AndRaise(self.exceptions.neutron)
-        api.neutron.network_delete(IsA(http.HttpRequest),
-                                   network.id)
+        # api.neutron.subnet_create(IsA(http.HttpRequest),
+        #                          network_id=network.id,
+        #                          name=subnet.name,
+        #                          cidr=subnet.cidr,
+        #                          ip_version=subnet.ip_version,
+        #                          gateway_ip=subnet.gateway_ip,
+        #                          enable_dhcp=subnet.enable_dhcp)\
+        #    .AndRaise(self.exceptions.neutron)
+        # api.neutron.network_delete(IsA(http.HttpRequest),
+        #                           network.id)
         self.mox.ReplayAll()
 
         form_data = {'net_name': network.name,
@@ -735,12 +757,6 @@ class NetworkTests(test.TestCase, NetworkStubMixin):
         params = {'name': network.name,
                   'admin_state_up': network.admin_state_up,
                   'shared': False}
-        subnet_params = {'network_id': network.id,
-                         'name': subnet.name,
-                         'cidr': cidr,
-                         'ip_version': subnet.ip_version,
-                         'gateway_ip': gateway_ip,
-                         'enable_dhcp': subnet.enable_dhcp}
 
         api.neutron.is_extension_supported(IsA(http.HttpRequest),
                                            'subnet_allocation').\
@@ -749,8 +765,6 @@ class NetworkTests(test.TestCase, NetworkStubMixin):
             AndReturn(self.subnetpools.list())
         api.neutron.network_create(IsA(http.HttpRequest),
                                    **params).AndReturn(network)
-        api.neutron.subnet_create(IsA(http.HttpRequest),
-                                  **subnet_params).AndReturn(subnet)
         self.mox.ReplayAll()
 
         form_data = {'net_name': network.name,

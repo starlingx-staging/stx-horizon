@@ -16,6 +16,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import logging
+
 from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.utils.translation import ugettext_lazy as _
@@ -30,6 +32,7 @@ from horizon import workflows
 from openstack_dashboard import api
 from openstack_dashboard.api import keystone
 from openstack_dashboard import policy
+from openstack_dashboard import project_settings
 from openstack_dashboard import usage
 from openstack_dashboard.usage import quotas
 
@@ -40,6 +43,8 @@ from openstack_dashboard.dashboards.identity.projects \
 from openstack_dashboard.dashboards.project.overview \
     import views as project_views
 from openstack_dashboard.utils import identity
+
+LOG = logging.getLogger(__name__)
 
 PROJECT_INFO_FIELDS = ("domain_id",
                        "domain_name",
@@ -78,10 +83,15 @@ class IndexView(tables.DataTableView):
     def has_more_data(self, table):
         return self._more
 
+    def get_limit_count(self, table):
+        return self._limit
+
     def get_data(self):
         tenants = []
         marker = self.request.GET.get(
             project_tables.TenantsTable._meta.pagination_param, None)
+        limit = self.request.GET.get(
+            project_tables.TenantsTable._meta.limit_param, None)
         self._more = False
         filters = self.get_filters()
 
@@ -107,8 +117,12 @@ class IndexView(tables.DataTableView):
                     domain=domain_id,
                     paginate=True,
                     filters=filters,
-                    marker=marker)
+                    marker=marker,
+                    limit=limit)
+                self._limit = limit
             except Exception:
+                self._more = False
+                self._limit = None
                 exceptions.handle(self.request,
                                   _("Unable to retrieve project list."))
         elif policy.check((("identity", "identity:list_user_projects"),),
@@ -118,10 +132,14 @@ class IndexView(tables.DataTableView):
                     self.request,
                     user=self.request.user.id,
                     paginate=True,
+                    limit=limit,
                     marker=marker,
                     filters=filters,
                     admin=False)
+                self._limit = limit
             except Exception:
+                self._more = False
+                self._limit = None
                 exceptions.handle(self.request,
                                   _("Unable to retrieve project information."))
         else:
@@ -195,6 +213,19 @@ class CreateProjectView(workflows.WorkflowView):
                 error_msg = _('Unable to retrieve default quota values.')
                 self.add_error_to_step(error_msg, 'create_quotas')
 
+        # get initial setting defaults
+        try:
+            setting_defaults = project_settings.get_default_setting_data(
+                self.request)
+
+            for setting in setting_defaults:
+                if setting.name in project_settings.SETTING_FIELDS:
+                    initial[setting.name] = setting.value
+
+        except Exception:
+            error_msg = _('Unable to retrieve default setting values.')
+            self.add_error_to_step(error_msg, 'update_settings')
+
         return initial
 
 
@@ -257,6 +288,21 @@ class UpdateProjectView(workflows.WorkflowView):
             exceptions.handle(self.request,
                               _('Unable to retrieve project details.'),
                               redirect=reverse(INDEX_URL))
+
+        # get initial setting defaults
+        try:
+            setting_defaults = project_settings.get_tenant_setting_data(
+                self.request,
+                tenant_id=project_id)
+
+            for setting in setting_defaults:
+                if setting.name in project_settings.SETTING_FIELDS:
+                    initial[setting.name] = setting.value
+
+        except Exception:
+            error_msg = _('Unable to retrieve project setting values.')
+            self.add_error_to_step(error_msg, 'update_settings')
+
         return initial
 
 

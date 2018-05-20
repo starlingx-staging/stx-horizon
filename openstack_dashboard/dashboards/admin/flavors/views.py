@@ -1,5 +1,6 @@
 # Copyright 2012 United States Government as represented by the
-# Administrator of the National Aeronautics and Space Administration.
+# Adminietrator of the National Aeronautics and Space Administration.
+
 # All Rights Reserved.
 #
 # Copyright 2012 Nebula, Inc.
@@ -15,6 +16,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2014-2015 Wind River Systems, Inc.
+#
 
 from django.core.urlresolvers import reverse_lazy
 from django.utils.translation import ugettext_lazy as _
@@ -94,11 +98,15 @@ class UpdateView(workflows.WorkflowView):
             exceptions.handle(self.request,
                               _('Unable to retrieve flavor details.'),
                               redirect=reverse_lazy(INDEX_URL))
-        return {'flavor_id': flavor.id,
+        # WRS - extend flavor options
+        up_d = {'flavor_id': flavor.id,
                 'name': flavor.name,
                 'vcpus': flavor.vcpus,
                 'memory_mb': flavor.ram,
                 'disk_gb': flavor.disk,
                 'swap_mb': flavor.swap or 0,
                 'rxtx_factor': flavor.rxtx_factor or 1,
-                'eph_gb': getattr(flavor, 'OS-FLV-EXT-DATA:ephemeral', None)}
+                'eph_gb': getattr(flavor, 'OS-FLV-EXT-DATA:ephemeral', None),
+                }
+        up_d = {k: v for k, v in up_d.items() if v is not None}
+        return up_d

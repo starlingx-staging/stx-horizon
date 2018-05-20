@@ -19,6 +19,7 @@
 from __future__ import absolute_import
 
 from django.conf import settings
+from django.test.utils import override_settings
 
 from horizon import exceptions
 
@@ -235,6 +236,7 @@ class ApiVersionTests(test.TestCase):
 class ApiHelperTests(test.TestCase):
     """Tests for functions that don't use one of the api objects."""
 
+    @override_settings(OPENSTACK_ENDPOINT_TYPE="publicURL")
     def test_url_for(self):
         url = api_base.url_for(self.request, 'image')
         self.assertEqual('http://public.glance.example.com:9292', url)

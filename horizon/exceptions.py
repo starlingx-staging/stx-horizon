@@ -228,6 +228,8 @@ def handle_unauthorized(request, message, redirect, ignore, escalate, handled,
         messages.error(request, message or fallback)
     # Escalation means logging the user out and raising NotAuthorized
     # so the middleware will redirect them appropriately.
+    # WRS: Always want to escalate for auth errors
+    escalate = True
     if escalate:
         # Prevents creation of circular import. django.contrib.auth
         # requires openstack_dashboard.settings to be loaded (by trying to

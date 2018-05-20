@@ -258,7 +258,7 @@ class HorizonTests(BaseHorizonTests):
         self.client.logout()
 
         resp = self.client.get(url)
-        redirect_url = "?".join(['http://testserver' + settings.LOGIN_URL,
+        redirect_url = "?".join([settings.LOGIN_URL,
                                  "next=%s" % url])
         self.assertRedirects(resp, redirect_url)
 
@@ -327,6 +327,12 @@ class HorizonTests(BaseHorizonTests):
 
         # Restore settings
         settings.SECURE_PROXY_SSL_HEADER = None
+
+    def test_urls_ngdetails(self):
+        resp = self.client.get("/ngdetails/")
+        self.assertEqual(200, resp.status_code)
+        resp = self.client.get("/ngdetails/OS::Glance::Image/xxxxx-xxx")
+        self.assertEqual(200, resp.status_code)
 
 
 class GetUserHomeTests(BaseHorizonTests):

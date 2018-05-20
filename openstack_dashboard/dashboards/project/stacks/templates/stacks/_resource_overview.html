@@ -20,6 +20,16 @@
     <dd>{{ resource.description }}</dd>
   </dl>
 
+  {% if resource.resource_type == 'AWS::AutoScaling::AutoScalingGroup' %}
+  <dl class="dl-horizontal">
+    <dt>{% trans "Nested Stack" %}</dt>
+    <dd>
+        {% url 'horizon:project:stacks:detail' resource.physical_resource_id as instance_url%}
+        <a href="{{ instance_url }}">Nested Stack Details</a>
+    </dd>
+  </dl>
+  {% endif %}
+
   <h4>{% trans "Status" %}</h4>
   <hr class="header_rule">
   <dl class="dl-horizontal">

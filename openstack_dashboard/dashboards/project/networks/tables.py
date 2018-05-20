@@ -11,6 +11,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2013-2017 Wind River Systems, Inc.
+#
+
 import logging
 
 from django.core.urlresolvers import reverse
@@ -19,6 +23,7 @@ from django.template import defaultfilters as filters
 from django.utils.translation import pgettext_lazy
 from django.utils.translation import ugettext_lazy as _
 from django.utils.translation import ungettext_lazy
+from neutronclient.common import exceptions as neutron_exceptions
 
 from horizon import exceptions
 from horizon import tables
@@ -64,6 +69,10 @@ class DeleteNetwork(policy.PolicyTargetMixin, tables.DeleteAction):
                 LOG.debug('Deleted subnet %s', subnet_id)
             api.neutron.network_delete(request, network_id)
             LOG.debug('Deleted network %s successfully', network_id)
+        except neutron_exceptions.NeutronClientException as e:
+            LOG.info(e.message)
+            redirect = reverse("horizon:project:networks:index")
+            exceptions.handle(request, e.message, redirect=redirect)
         except Exception as e:
             LOG.info('Failed to delete network %(id)s: %(exc)s',
                      {'id': network_id, 'exc': e})

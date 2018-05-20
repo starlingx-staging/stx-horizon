@@ -1,0 +1,11 @@
+<div ng-controller="LaunchInstanceAdvanceController">
+  <p translate>This step allows you specify advanced options to use when launching an instance</p>
+  <p>&nbsp</p>
+
+  <div class="form-group">
+        <label class="control-label" for="min-inst-count" translate>Minimum Instance Count</label>
+        <input id="min-inst-count" name="min_inst_count" type="number" class="form-control" min="0"
+               ng-model="model.newInstanceSpec.min_inst_count"
+               ng-pattern="/^[0-9]+$/">
+  </div>
+</div>

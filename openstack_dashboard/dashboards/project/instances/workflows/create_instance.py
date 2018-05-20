@@ -15,6 +15,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2013-2017 Wind River Systems, Inc.
+#
 
 import json
 import logging
@@ -26,6 +29,7 @@ import six
 from django.template.defaultfilters import filesizeformat
 from django.utils.text import normalize_newlines
 from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import ungettext_lazy
 from django.views.decorators.debug import sensitive_variables
 
 from horizon import exceptions
@@ -203,6 +207,20 @@ class SetInstanceDetailsAction(workflows.Action):
             image = None
         return image
 
+    def _check_count(self, cleaned_data):
+        min_count = cleaned_data.get('min_count')
+        if min_count:
+            max_count = cleaned_data.get('count', 1)
+            if max_count < min_count:
+                error_message = ungettext_lazy(
+                    'The requested instance cannot be launched as '
+                    'the requested %(req)i instances is less than ',
+                    'the requested minimum %(min)i instances. '
+                    'The request instance cannot be launched.',
+                    max_count)
+                params = {'req': max_count, 'min': min_count}
+                raise forms.ValidationError(error_message % params)
+
     def _check_quotas(self, cleaned_data):
         count = cleaned_data.get('count', 1)
 
@@ -364,6 +382,7 @@ class SetInstanceDetailsAction(workflows.Action):
     def clean(self):
         cleaned_data = super(SetInstanceDetailsAction, self).clean()
 
+        self._check_count(cleaned_data)
         self._check_quotas(cleaned_data)
         self._check_source(cleaned_data)
 
@@ -536,6 +555,61 @@ class SetInstanceDetails(workflows.Step):
         return context
 
 
+class SetServerGroupAction(workflows.Action):
+    server_group = forms.ChoiceField(label=_("Server Group (Optional)"),
+                                     required=False,
+                                     help_text=_("Which server group to put "
+                                                 "this instance in."))
+
+    class Meta(object):
+        name = _("Server Group")
+        help_text = _("Optionally specify a server group into which "
+                      "the new instance will be placed at startup.  This "
+                      "may affect the scheduling of the new instance.")
+
+    def populate_server_group_choices(self, request, context):
+        try:
+            server_groups = api.nova.server_group_list(request)
+            server_group_list = []
+
+            for sg in server_groups:
+                server_group = api.nova.server_group_get(request, sg.id)
+
+                if 'affinity-hyperthread' in server_group.policies:
+                    if hasattr(server_group, 'members'):
+                        if server_group.members:
+                            if len(server_group.members) < 2:
+                                server_group_list.append((sg.id,
+                                                          "%s" % sg.name))
+                        else:
+                            server_group_list.append((sg.id, "%s" % sg.name))
+
+                else:
+                    server_group_list.append((sg.id, "%s" % sg.name))
+
+        except Exception:
+            server_group_list = []
+            exceptions.handle(request,
+                              _('Unable to retrieve server groups.'))
+        if server_group_list:
+            server_group_list.insert(0, ("", _("Select an server group")))
+        else:
+            server_group_list = (("", _("No server groups available.")),)
+        return server_group_list
+
+
+class SetServerGroup(workflows.Step):
+    action_class = SetServerGroupAction
+    depends_on = ("project_id", "user_id")
+    contributes = ("server_group")
+
+    def contribute(self, data, context):
+        if data:
+            # post = self.workflow.request.POST
+            context['server_group'] = data.get("server_group", "")
+        return context
+
+
 KEYPAIR_IMPORT_URL = "horizon:project:key_pairs:import"
 
 
@@ -703,6 +777,18 @@ class PostCreationStep(workflows.Step):
 
 
 class SetNetworkAction(workflows.Action):
+    VIF_MODEL_CHOICES = [
+        ('avp', _("Accelerated Virtual Port (avp)")),
+        ('e1000', _("Intel e1000 Emulation (e1000)")),
+        ('ne2k_pci', _("NE2000 Emulation (ne2k_pci)")),
+        ('pcnet', _("AMD PCnet/PCI Emulation (pcnet)")),
+        ('rtl8139', _("Realtek 8139 Emulation (rtl8139)")),
+        ('virtio', _("VirtIO Network (virtio)")),
+        ('pci-passthrough', _("PCI Passthrough device")),
+        ('pci-sriov', _("PCI SR-IOV device")),
+        ('', _("from image")),
+    ]
+
     network = forms.MultipleChoiceField(
         label=_("Networks"),
         widget=forms.ThemableCheckboxSelectMultiple(),
@@ -715,9 +801,13 @@ class SetNetworkAction(workflows.Action):
 
     def __init__(self, request, *args, **kwargs):
         super(SetNetworkAction, self).__init__(request, *args, **kwargs)
-        network_list = self.fields["network"].choices
-        if len(network_list) == 1:
-            self.fields['network'].initial = [network_list[0][0]]
+        tenant_id = self.request.user.tenant_id
+        networks = api.neutron.network_list_for_tenant(request, tenant_id)
+        for network in networks:
+            self.fields['vif_model_' + network.id] =\
+                forms.ChoiceField(required=False,
+                                  initial='virtio',
+                                  choices=self.VIF_MODEL_CHOICES)
 
     class Meta(object):
         name = _("Networking")
@@ -725,13 +815,24 @@ class SetNetworkAction(workflows.Action):
         help_text = _("Select networks for your instance.")
 
     def populate_network_choices(self, request, context):
-        return instance_utils.network_field_data(request)
+        network_list = []
+        try:
+            tenant_id = self.request.user.tenant_id
+            networks = api.neutron.network_list_for_tenant(request, tenant_id)
+            for n in networks:
+                n.set_id_as_name_if_empty()
+                network_list.append((n.id, n.name))
+            sorted(network_list, key=lambda obj: obj[1])
+        except Exception:
+            exceptions.handle(request,
+                              _('Unable to retrieve networks.'))
+        return network_list
 
 
 class SetNetwork(workflows.Step):
     action_class = SetNetworkAction
     template_name = "project/instances/_update_networks.html"
-    contributes = ("network_id",)
+    contributes = ("network_id", "vif_model",)
 
     def contribute(self, data, context):
         if data:
@@ -741,6 +842,13 @@ class SetNetwork(workflows.Step):
             networks = [n for n in networks if n != '']
             if networks:
                 context['network_id'] = networks
+
+            vif_models = [data.get('vif_model_' + str(n)) for n in networks]
+            if vif_models:
+                context['vif_model'] = vif_models
+
+            if api.neutron.is_port_profiles_supported():
+                context['profile_id'] = data.get('profile', None)
         return context
 
 
@@ -783,6 +891,11 @@ class SetAdvancedAction(workflows.Action):
         help_text=_("Automatic: The entire disk is a single partition and "
                     "automatically resizes. Manual: Results in faster build "
                     "times but requires manual partitioning."))
+
+    min_count = forms.IntegerField(
+        label=_("Minimum Instance Count"), required=False, min_value=1,
+        help_text=_("Minimum Number of Instances to launch."))
+
     config_drive = forms.BooleanField(
         label=_("Configuration Drive"),
         required=False, help_text=_("Configure OpenStack to write metadata to "
@@ -795,6 +908,10 @@ class SetAdvancedAction(workflows.Action):
     def __init__(self, request, context, *args, **kwargs):
         super(SetAdvancedAction, self).__init__(request, context,
                                                 *args, **kwargs)
+
+        if not base.is_TiS_region(request):
+            del self.fields['min_count']
+
         try:
             if not api.nova.extension_supported("DiskConfig", request):
                 del self.fields['disk_config']
@@ -828,7 +945,7 @@ class SetAdvancedAction(workflows.Action):
 
 class SetAdvanced(workflows.Step):
     action_class = SetAdvancedAction
-    contributes = ("disk_config", "config_drive", "server_group",)
+    contributes = ("disk_config", "config_drive", "server_group", "min_count")
 
     def prepare_action_context(self, request, context):
         context = super(SetAdvanced, self).prepare_action_context(request,
@@ -851,6 +968,7 @@ class LaunchInstance(workflows.Workflow):
     multipart = True
     default_steps = (SelectProjectUser,
                      SetInstanceDetails,
+                     SetServerGroup,
                      SetAccessControls,
                      SetNetwork,
                      SetNetworkPorts,
@@ -861,7 +979,11 @@ class LaunchInstance(workflows.Workflow):
         name = self.context.get('name', 'unknown instance')
         count = self.context.get('count', 1)
         if int(count) > 1:
-            return message % {"count": _("%s instances") % count,
+            min_count = self.context.get('min_count')
+            if min_count is None:
+                return message % {"count": _("%s instances") % count,
+                                  "name": name}
+            return message % {"count": _("at least %s instances") % min_count,
                               "name": name}
         else:
             return message % {"count": _("instance"), "name": name}
@@ -927,9 +1049,10 @@ class LaunchInstance(workflows.Workflow):
             ]
 
         netids = context.get('network_id', None)
+        models = context.get('vif_model', None)
         if netids:
-            nics = [{"net-id": netid, "v4-fixed-ip": ""}
-                    for netid in netids]
+            nics = [{"net-id": netid, "vif-model": model, "v4-fixed-ip": ""}
+                    for netid, model in zip(netids, models)]
         else:
             nics = None
 
@@ -947,6 +1070,10 @@ class LaunchInstance(workflows.Workflow):
             nics.extend([{'port-id': port} for port in ports])
 
         try:
+            min_count = context['min_count']
+            if min_count:
+                min_count = int(min_count)
+
             api.nova.server_create(request,
                                    context['name'],
                                    image_id,
@@ -962,7 +1089,8 @@ class LaunchInstance(workflows.Workflow):
                                    admin_pass=context['admin_pass'],
                                    disk_config=context.get('disk_config'),
                                    config_drive=context.get('config_drive'),
-                                   scheduler_hints=scheduler_hints)
+                                   scheduler_hints=scheduler_hints,
+                                   min_inst_count=min_count)
             return True
         except Exception:
             exceptions.handle(request)

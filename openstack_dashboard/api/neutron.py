@@ -16,6 +16,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2013-2017 Wind River Systems, Inc.
+#
 
 from __future__ import absolute_import
 
@@ -43,6 +46,8 @@ from openstack_dashboard import policy
 LOG = logging.getLogger(__name__)
 
 IP_VERSION_DICT = {4: 'IPv4', 6: 'IPv6'}
+
+QOS_TYPE_SCHEDULER = "scheduler"
 
 OFF_STATE = 'OFF'
 ON_STATE = 'ON'
@@ -73,7 +78,7 @@ class NeutronAPIDictWrapper(base.APIDictWrapper):
 
     def set_id_as_name_if_empty(self, length=8):
         try:
-            if not self._apidict['name'].strip():
+            if not (self._apidict['name'] and self._apidict['name'].strip()):
                 id = self._apidict['id']
                 if length:
                     id = id[:length]
@@ -86,8 +91,10 @@ class NeutronAPIDictWrapper(base.APIDictWrapper):
 
     @property
     def name_or_id(self):
-        return (self._apidict.get('name').strip() or
-                '(%s)' % self._apidict['id'][:13])
+        if self._apidict.get('name') and self._apidict.get('name').strip():
+            return self._apidict.get('name')
+        else:
+            return '(%s)' % self._apidict['id'][:8]
 
 
 class Agent(NeutronAPIDictWrapper):
@@ -97,6 +104,10 @@ class Agent(NeutronAPIDictWrapper):
 class Network(NeutronAPIDictWrapper):
     """Wrapper for neutron Networks."""
 
+    @property
+    def qos(self):
+        return getattr(self, "wrs-tm:qos", None)
+
 
 class Subnet(NeutronAPIDictWrapper):
     """Wrapper for neutron subnets."""
@@ -104,6 +115,26 @@ class Subnet(NeutronAPIDictWrapper):
     def __init__(self, apidict):
         apidict['ipver_str'] = get_ipver_str(apidict['ip_version'])
         super(Subnet, self).__init__(apidict)
+
+    @property
+    def vlan_id(self):
+        return getattr(self, "wrs-net:vlan_id", None)
+
+    @property
+    def managed(self):
+        return getattr(self, "wrs-net:managed", None)
+
+    @property
+    def provider__physical_network(self):
+        return getattr(self, "wrs-provider:physical_network", None)
+
+    @property
+    def provider__segmentation_id(self):
+        return getattr(self, "wrs-provider:segmentation_id", None)
+
+    @property
+    def provider__network_type(self):
+        return getattr(self, "wrs-provider:network_type", None)
 
 
 class Trunk(NeutronAPIDictWrapper):
@@ -150,6 +181,10 @@ class PortAllowedAddressPair(NeutronAPIDictWrapper):
 
 class Router(NeutronAPIDictWrapper):
     """Wrapper for neutron routers."""
+
+    @property
+    def host(self):
+        return getattr(self, "wrs-net:host", None)
 
 
 class RouterStaticRoute(NeutronAPIDictWrapper):
@@ -600,9 +635,11 @@ class FloatingIpManager(object):
                                      ROUTER_INTERFACE_OWNERS)
                                     and (p.device_id in gw_routers))])
         # we have to include any shared subnets as well because we may not
-        # have permission to see the router interface to infer connectivity
+        # have permission to see the router interface to infer connectivity,
+        # but we can at least exclude subnets without gateway IP addresses
+        # since they are definitely not attached to a router.
         shared = set([s.id for n in network_list(self.request, shared=True)
-                      for s in n.subnets])
+                      for s in n.subnets if s.gateway_ip])
         return reachable_subnets | shared
 
     @profiler.trace
@@ -700,6 +737,26 @@ class FloatingIpManager(object):
         """Returns True if floating IP feature is supported."""
         network_config = getattr(settings, 'OPENSTACK_NEUTRON_NETWORK', {})
         return network_config.get('enable_router', True)
+
+
+class PortForwardingRule(base.APIDictWrapper):
+    pass
+
+
+class ProviderNetworkType(NeutronAPIDictWrapper):
+    """Wrapper for neutron Provider Network Types."""
+
+
+class ProviderNetworkRange(NeutronAPIDictWrapper):
+    """Wrapper for neutron Provider Networks Id Ranges."""
+
+
+class ProviderNetwork(NeutronAPIDictWrapper):
+    """Wrapper for neutron Provider Networks."""
+
+
+class ProviderTenantNetwork(NeutronAPIDictWrapper):
+    """Wrapper for neutron Provider Tenant Networks."""
 
 
 def get_ipver_str(ip_version):
@@ -859,12 +916,23 @@ def network_get(request, network_id, expand_subnet=True, **params):
     network = neutronclient(request).show_network(network_id,
                                                   **params).get('network')
     if expand_subnet:
-        if request.user.tenant_id == network['tenant_id'] or network['shared']:
+        # NOTE(amotoki): There are some cases where a user has no permission
+        # to get subnet details, but the condition is complicated. We first
+        # try to fetch subnet details. If successful, the subnet details are
+        # set to network['subnets'] as a list of "Subent" object.
+        # If NotFound exception is returned by neutron, network['subnets'] is
+        # left untouched and a list of subnet IDs are stored.
+        # Neutron returns NotFound exception if a request user has enough
+        # permission to access a requested resource, so we catch only
+        # NotFound exception here.
+        try:
             # Since the number of subnets per network must be small,
             # call subnet_get() for each subnet instead of calling
             # subnet_list() once.
             network['subnets'] = [subnet_get(request, sid)
                                   for sid in network['subnets']]
+        except neutron_exc.NotFound:
+            pass
     return Network(network)
 
 
@@ -1167,9 +1235,13 @@ def router_remove_interface(request, router_id, subnet_id=None, port_id=None):
     neutronclient(request).remove_interface_router(router_id, body)
 
 
-@profiler.trace
-def router_add_gateway(request, router_id, network_id):
+def router_add_gateway(request, router_id, network_id,
+                       ip_address=None, enable_snat=None):
     body = {'network_id': network_id}
+    if ip_address is not None:
+        body.update({'external_fixed_ips': [{'ip_address': ip_address}]})
+    if enable_snat is not None:
+        body.update({'enable_snat': enable_snat})
     neutronclient(request).add_gateway_router(router_id, body)
 
 
@@ -1224,6 +1296,18 @@ def tenant_quota_get(request, tenant_id):
 def tenant_quota_update(request, tenant_id, **kwargs):
     quotas = {'quota': kwargs}
     return neutronclient(request).update_quota(tenant_id, quotas)
+
+
+@profiler.trace
+def tenant_setting_get(request, tenant_id):
+    tenant_settings = neutronclient(request).show_setting(tenant_id)['setting']
+    return [base.ProjectSetting(k, v) for k, v in tenant_settings.iteritems()]
+
+
+@profiler.trace
+def tenant_setting_update(request, tenant_id, **kwargs):
+    settings = {'setting': kwargs}
+    return neutronclient(request).update_setting(tenant_id, settings)
 
 
 @profiler.trace
@@ -1508,9 +1592,15 @@ def is_quotas_extension_supported(request):
 
 
 @memoized
+def is_settings_extension_supported(request):
+    return is_extension_supported(request, 'settings')
+
+
+@memoized
 def is_router_enabled(request):
     return (is_enabled_by_config('enable_router') and
             is_extension_supported(request, 'router'))
+
 
 # FEATURE_MAP is used to define:
 # - related neutron extension name (key: "extension")
@@ -1597,8 +1687,143 @@ def get_feature_permission(request, feature, operation=None):
     return True
 
 
+def provider_network_type_list(request, **params):
+    providernet_types = neutronclient(request).list_providernet_types(
+        **params).get(
+            'providernet_types')
+    return [ProviderNetworkType(t) for t in providernet_types]
+
+
+def provider_network_create(request, **kwargs):
+    body = {'providernet': kwargs}
+
+    providernet = neutronclient(request).create_providernet(body=body).get(
+        'providernet')
+    return ProviderNetwork(providernet)
+
+
+def provider_network_list(request, **params):
+    providernets = neutronclient(request).list_providernets(**params).get(
+        'providernets')
+    return [ProviderNetwork(n) for n in providernets]
+
+
+def provider_network_list_for_tenant(request, tenant_id, **params):
+    return provider_network_list(request, tenant_id=tenant_id, **params)
+
+
+def provider_network_list_tenant_networks(request, providernet_id, **params):
+    nets = neutronclient(request).list_networks_on_providernet(
+        providernet_id, **params).get('networks')
+    return [ProviderTenantNetwork(n) for n in nets]
+
+
+def provider_network_get(request, providernet_id,
+                         expand_subnet=True, **params):
+    providernet = neutronclient(request).show_providernet(
+        providernet_id, **params).get('providernet')
+    return ProviderNetwork(providernet)
+
+
+def provider_network_delete(request, providernet_id):
+    neutronclient(request).delete_providernet(providernet_id)
+
+
+def provider_network_modify(request, providernet_id, **kwargs):
+    body = {'providernet': kwargs}
+    providernet = neutronclient(request).update_providernet(
+        providernet_id, body=body).get('providernet')
+    return ProviderNetwork(providernet)
+
+
+def provider_network_range_create(request, **kwargs):
+    body = {'providernet_range': kwargs}
+    range = neutronclient(request).create_providernet_range(body=body).get(
+        'providernet_range')
+    return ProviderNetworkRange(range)
+
+
+def provider_network_range_list(request, **params):
+    ranges = neutronclient(request).list_providernet_ranges(**params).get(
+        'providernet_ranges')
+    return [ProviderNetworkRange(r) for r in ranges]
+
+
+def provider_network_range_get(request, range_id,
+                               expand_subnet=True, **params):
+    range = neutronclient(request).show_providernet_range(
+        range_id, **params).get('providernet_range')
+    return ProviderNetworkRange(range)
+
+
+def provider_network_range_delete(request, range_id):
+    neutronclient(request).delete_providernet_range(range_id)
+
+
+def provider_network_range_modify(request, range_id, **kwargs):
+    body = {'providernet_range': kwargs}
+    range = neutronclient(request).update_providernet_range(
+        range_id, body=body).get('providernet_range')
+    return ProviderNetworkRange(range)
+
+
+def qos_list(request):
+    qoses = neutronclient(request).list_qoses().get('qoses')
+    return [QoSPolicy(q) for q in qoses]
+
+
+def qos_get(request, qos_id):
+    qos = neutronclient(request).show_qos(qos_id).get('qos')
+    return QoSPolicy(qos)
+
+
+def qos_create(request, **kwargs):
+    body = {'qos': kwargs}
+    return neutronclient(request).create_qos(body=body)
+
+
+def qos_update(request, qos_id, **kwargs):
+    body = {'qos': kwargs}
+    return neutronclient(request).update_qos(qos_id, body=body)
+
+
+def qos_delete(request, qos_id):
+    neutronclient(request).delete_qos(qos_id)
+
+
+def portforwarding_list(request, **params):
+    rules = (neutronclient(request).
+             list_portforwardings(**params).get('portforwardings'))
+    return [PortForwardingRule(r) for r in rules]
+
+
+def portforwarding_get(request, portforwarding_id):
+    rule = (neutronclient(request).
+            show_portforwarding(portforwarding_id).get('portforwarding'))
+    return PortForwardingRule(rule)
+
+
+def portforwarding_create(request, **kwargs):
+    body = {'portforwarding': kwargs}
+    rule = neutronclient(request).create_portforwarding(body=body)
+    return PortForwardingRule(rule)
+
+
+def portforwarding_update(request, portforwarding_id, **kwargs):
+    body = {'portforwarding': kwargs}
+    rule = neutronclient(request).update_portforwarding(
+        portforwarding_id, body=body).get('portforwarding')
+    return PortForwardingRule(rule)
+
+
+def portforwarding_delete(request, portforwarding_id):
+    return neutronclient(request).delete_portforwarding(portforwarding_id)
+
+
 class QoSPolicy(NeutronAPIDictWrapper):
     """Wrapper for neutron QoS Policy."""
+
+    _attrs = ['id', 'description', 'type', 'policies']
 
     def to_dict(self):
         return self._apidict

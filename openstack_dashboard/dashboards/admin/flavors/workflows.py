@@ -15,7 +15,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+#
+# Copyright (c) 2014-2016 Wind River Systems, Inc.
+#
 
 from django.utils.translation import ugettext_lazy as _
 
@@ -24,6 +26,7 @@ from horizon import forms
 from horizon import workflows
 
 from openstack_dashboard import api
+from openstack_dashboard import constants
 
 
 class CreateFlavorInfoAction(workflows.Action):
@@ -38,25 +41,26 @@ class CreateFlavorInfoAction(workflows.Action):
         regex=r'^[\w\.\- ]+$',
         error_messages={'invalid': _('Name may only contain letters, numbers, '
                                      'underscores, periods and hyphens.')})
+    MAX_INT = 2147483647
     flavor_id = forms.RegexField(label=_("ID"),
                                  regex=_flavor_id_regex,
                                  required=False,
                                  initial='auto',
                                  help_text=_flavor_id_help_text)
     vcpus = forms.IntegerField(label=_("VCPUs"),
-                               min_value=1)
+                               min_value=1, max_value=constants.MAX_VCPUS)
     memory_mb = forms.IntegerField(label=_("RAM (MB)"),
-                                   min_value=1)
+                                   min_value=1, max_value=MAX_INT)
     disk_gb = forms.IntegerField(label=_("Root Disk (GB)"),
-                                 min_value=0)
+                                 min_value=0, max_value=MAX_INT)
     eph_gb = forms.IntegerField(label=_("Ephemeral Disk (GB)"),
                                 required=False,
                                 initial=0,
-                                min_value=0)
+                                min_value=0, max_value=MAX_INT)
     swap_mb = forms.IntegerField(label=_("Swap Disk (MB)"),
                                  required=False,
                                  initial=0,
-                                 min_value=0)
+                                 min_value=0, max_value=MAX_INT)
     rxtx_factor = forms.FloatField(label=_("RX/TX Factor"),
                                    required=False,
                                    initial=1,
@@ -168,9 +172,11 @@ class UpdateFlavorAccessAction(workflows.MembershipAction):
 
 class UpdateFlavorAccess(workflows.UpdateMembersStep):
     action_class = UpdateFlavorAccessAction
-    help_text = _("Select the projects where the flavors will be used. If no "
-                  "projects are selected, then the flavor will be available "
-                  "in all projects.")
+    help_text = _("You can control access to this flavor by moving projects "
+                  "from the left column to the right column. Only projects "
+                  "in the right column can use the flavor. If there are no "
+                  "projects in the right column, all projects can use the "
+                  "flavor.")
     available_list_title = _("All Projects")
     members_list_title = _("Selected Projects")
     no_available_text = _("No projects found.")
@@ -297,6 +303,9 @@ class UpdateFlavor(workflows.Workflow):
 
         flavor_projects = data["flavor_access"]
         is_public = not flavor_projects
+        swap = data.get('swap_mb') or 0
+        ephemeral = data.get('eph_gb') or 0
+        rxtx_factor = data.get('rxtx_factor') or 1
 
         def is_changed(flavor):
             return not (data['name'] == flavor.name and
@@ -364,11 +373,11 @@ class UpdateFlavor(workflows.Workflow):
                                             data['memory_mb'],
                                             data['vcpus'],
                                             data['disk_gb'],
-                                            ephemeral=data['eph_gb'],
-                                            swap=data['swap_mb'],
+                                            ephemeral=ephemeral,
+                                            swap=swap,
                                             is_public=is_public,
-                                            rxtx_factor=data['rxtx_factor'])
-            if (extras_dict):
+                                            rxtx_factor=rxtx_factor)
+            if extras_dict:
                 api.nova.flavor_extra_set(request, flavor.id, extras_dict)
         except Exception:
             exceptions.handle(request, ignore=True)

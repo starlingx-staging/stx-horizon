@@ -11,11 +11,15 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2016-2017 Wind River Systems, Inc.
+#
 
 from collections import defaultdict
 
 from django.conf import settings
 from django.core.urlresolvers import reverse
+from django import template
 from django.template import defaultfilters as filters
 from django.utils.http import urlencode
 from django.utils.translation import pgettext_lazy
@@ -26,6 +30,7 @@ from horizon import tables
 from horizon.utils.memoized import memoized
 
 from openstack_dashboard import api
+from openstack_dashboard.api import base
 
 NOT_LAUNCHABLE_FORMATS = ['aki', 'ari']
 
@@ -265,6 +270,37 @@ def get_format(image):
     return format.upper()
 
 
+def get_image_cache(image):
+    format = getattr(image, "disk_format", "")
+    if format == "raw":
+        return "N/A"
+
+    cache_raw = getattr(image, "properties", {}).get("cache_raw", "")
+    if cache_raw != "True":
+        return "Disabled"
+
+    cache_raw_status = getattr(image, "properties", {}).get("cache_raw_status",
+                                                            "")
+    if not cache_raw_status:
+        return "-"
+    return cache_raw_status
+
+
+def get_image_size(image):
+    template_name = 'project/images/_image_size.html'
+    cache_raw_size = getattr(image, "properties", {}).get("cache_raw_size", "")
+
+    # change file from default "-" to "" to simplify template design
+    if cache_raw_size == "-":
+        cache_raw_size = ""
+
+    context = {
+        "image": image,
+        "cache_size": cache_raw_size
+    }
+    return template.loader.render_to_string(template_name, context)
+
+
 class UpdateRow(tables.Row):
     ajax = True
 
@@ -318,6 +354,8 @@ class ImagesTable(tables.DataTable):
                            status=True,
                            status_choices=STATUS_CHOICES,
                            display_choices=STATUS_DISPLAY_CHOICES)
+    cache = tables.Column(get_image_cache,
+                          verbose_name=_("RAW Cache"))
     public = tables.Column("is_public",
                            verbose_name=_("Public"),
                            empty_value=False,
@@ -327,8 +365,7 @@ class ImagesTable(tables.DataTable):
                               empty_value=False,
                               filters=(filters.yesno, filters.capfirst))
     disk_format = tables.Column(get_format, verbose_name=_("Format"))
-    size = tables.Column("size",
-                         filters=(filters.filesizeformat,),
+    size = tables.Column(get_image_size,
                          attrs=({"data-type": "size"}),
                          verbose_name=_("Size"))
 
@@ -346,3 +383,12 @@ class ImagesTable(tables.DataTable):
         row_actions = launch_actions + (CreateVolumeFromImage,
                                         EditImage, UpdateMetadata,
                                         DeleteImage,)
+
+    def __init__(self, request, **kwargs):
+        super(ImagesTable, self).__init__(request, **kwargs)
+        if api.cinder.is_volume_service_enabled(request):
+            volume_types = api.cinder.volume_type_list(request)
+            if all('ceph' not in vtype.name for vtype in volume_types) or \
+                    not base.is_TiS_region(request):
+                if 'cache' in self.columns:
+                    del self.columns['cache']

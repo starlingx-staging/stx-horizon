@@ -184,7 +184,12 @@ def keystoneclient(request, admin=False):
         conn = getattr(request, cache_attr)
     else:
         endpoint = _get_endpoint_url(request, endpoint_type)
-        insecure = getattr(settings, 'OPENSTACK_SSL_NO_VERIFY', False)
+
+        # NOTE: Disable SSL certificate checks for Horizon
+        # since the Keystone admin endpoint is now moved to be over HTTPS.
+        # This is to prevent the localhost Horizon instance from having SSL
+        # cert failures on querying Keystone admin endpoints
+        insecure = getattr(settings, 'OPENSTACK_SSL_NO_VERIFY', True)
         cacert = getattr(settings, 'OPENSTACK_SSL_CACERT', None)
         LOG.debug("Creating a new keystoneclient connection to %s.", endpoint)
         remote_addr = request.environ.get('REMOTE_ADDR', '')
@@ -353,7 +358,7 @@ def tenant_delete(request, project):
 
 @profiler.trace
 def tenant_list(request, paginate=False, marker=None, domain=None, user=None,
-                admin=True, filters=None):
+                admin=True, filters=None, limit=None):
     manager = VERSIONS.get_project_manager(request, admin=admin)
     page_size = utils.get_page_size(request)
     tenants = []

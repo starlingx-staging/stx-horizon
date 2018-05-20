@@ -28,6 +28,7 @@ horizon.modals = {
   // Storage for our current jqXHR object.
   _request: null,
   spinner: null,
+  confirm: null,
   progress_bar: null,
   _init_functions: []
 };
@@ -43,13 +44,19 @@ horizon.modals.initModal = function (modal) {
 };
 
 /* Creates a modal dialog from the client-side template. */
-horizon.modals.create = function (title, body, confirm, cancel) {
+horizon.modals.create = function (title, body, confirm, cancel, confirm_class, cancel_class) {
   if (!cancel) {
     cancel = gettext("Cancel");
   }
+  if (!confirm_class) {
+    confirm_class = 'btn-primary';
+  }
+  if (!cancel_class) {
+    cancel_class = 'cancel';
+  }
   var template = horizon.templates.compiled_templates["#modal_template"],
     params = {
-      title: title, body: body, confirm: confirm, cancel: cancel,
+      title: title, body: body, confirm: confirm, cancel: cancel, confirm_class: confirm_class, cancel_class: cancel_class,
       modal_backdrop: horizon.modals.MODAL_BACKDROP
     };
   return $(template.render(params)).appendTo("#modal_wrapper");
@@ -267,7 +274,7 @@ horizon.addInitFunction(horizon.modals.init = function() {
   });
 
   // Bind "cancel" button handler.
-  $document.on('click', '.modal .cancel', function (evt) {
+  $(document).on('click', '.modal .btn-cancel', function (evt) {
     $(this).closest('.modal').modal('hide');
     evt.preventDefault();
   });
@@ -276,7 +283,7 @@ horizon.addInitFunction(horizon.modals.init = function() {
   $document.on('submit', '.modal form', function (evt) {
     var $form = $(this),
       form = this,
-      $button = $form.find(".modal-footer .btn-primary"),
+      $button = $form.find(".modal-footer .btn-submit"),
       update_field_id = $form.attr("data-add-to-field"),
       headers = {},
       modalFileUpload = $form.attr("enctype") === "multipart/form-data",

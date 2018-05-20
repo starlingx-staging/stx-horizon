@@ -27,3 +27,15 @@ class Routers(horizon.Panel):
     def can_register():
         network_config = getattr(settings, 'OPENSTACK_NEUTRON_NETWORK', {})
         return network_config.get('enable_router', True)
+
+    def allowed(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return super(Routers, self).allowed(context)
+
+    def nav(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return True

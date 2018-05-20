@@ -89,6 +89,7 @@ class SelectTemplateView(forms.ModalFormView):
     submit_label = _("Next")
     submit_url = reverse_lazy("horizon:project:stacks:select_template")
     success_url = reverse_lazy('horizon:project:stacks:launch')
+    cancel_url = reverse_lazy('horizon:project:stacks:index')
     page_title = _("Select Template")
 
     def get_initial(self):
@@ -157,6 +158,7 @@ class PreviewTemplateView(forms.ModalFormView):
     submit_label = _("Next")
     submit_url = reverse_lazy('horizon:project:stacks:preview_template')
     success_url = reverse_lazy('horizon:project:stacks:preview')
+    cancel_url = reverse_lazy('horizon:project:stacks:index')
     page_title = _("Preview Template")
 
     def get_form_kwargs(self):

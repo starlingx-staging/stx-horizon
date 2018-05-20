@@ -12,6 +12,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import logging
+
 from django.conf import settings
 from django.core.urlresolvers import NoReverseMatch
 from django.core.urlresolvers import reverse
@@ -33,6 +35,8 @@ from horizon import tables
 from openstack_dashboard import api
 from openstack_dashboard.api import cinder
 from openstack_dashboard import policy
+
+LOG = logging.getLogger(__name__)
 
 DELETABLE_STATES = ("available", "error", "error_extending")
 
@@ -112,7 +116,18 @@ class DeleteVolume(VolumePolicyTargetMixin, tables.DeleteAction):
     policy_rules = (("volume", "volume:delete"),)
 
     def delete(self, request, obj_id):
-        cinder.volume_delete(request, obj_id)
+        try:
+            obj = self.table.get_object_by_id(obj_id)
+            name = self.table.get_object_display(obj)
+        except Exception:
+            name = obj_id
+        try:
+            cinder.volume_delete(request, obj_id)
+        except Exception:
+            msg = _('Unable to delete volume "%s". One or more snapshots '
+                    'depend on it.')
+            exceptions.check_message(["snapshots", "dependent"], msg % name)
+            raise
 
     def allowed(self, request, volume=None):
         if volume:
@@ -346,7 +361,7 @@ def get_size(volume):
     return _("%sGiB") % volume.size
 
 
-def get_attachment_name(request, attachment):
+def get_attachment_name(request, attachment, admin=False):
     server_id = attachment.get("server_id", None)
     if "instance" in attachment and attachment['instance']:
         name = attachment["instance"].name
@@ -354,12 +369,18 @@ def get_attachment_name(request, attachment):
         try:
             server = api.nova.server_get(request, server_id)
             name = server.name
-        except Exception:
-            name = None
-            exceptions.handle(request, _("Unable to retrieve "
-                                         "attachment information."))
+        except Exception as ex:
+            # WRS: If the server is deleted but the volume still exists
+            # we do not want horizon to fail.
+            name = _("Unknown instance")
+            LOG.warning("Volume attached to invalid server, server_id:(%s). "
+                        "Ex:%s", str(server_id), str(ex))
     try:
-        url = reverse("horizon:project:instances:detail", args=(server_id,))
+        if admin:
+            location = "horizon:admin:instances:detail"
+        else:
+            location = "horizon:project:instances:detail"
+        url = reverse(location, args=(server_id,))
         instance = '<a href="%s">%s</a>' % (url, html.escape(name))
     except NoReverseMatch:
         instance = html.escape(name)
@@ -372,6 +393,8 @@ class AttachmentColumn(tables.WrappingColumn):
     So it that does complex processing on the attachments
     for a volume instance.
     """
+    admin = False
+
     def get_raw_data(self, volume):
         request = self.table.request
         link = _('%(dev)s on %(instance)s')
@@ -380,7 +403,7 @@ class AttachmentColumn(tables.WrappingColumn):
         for attachment in [att for att in volume.attachments if att]:
             # When a volume is attached it may return the server_id
             # without the server name...
-            instance = get_attachment_name(request, attachment)
+            instance = get_attachment_name(request, attachment, self.admin)
             vals = {"instance": instance,
                     "dev": html.escape(attachment.get("device", ""))}
             attachments.append(link % vals)

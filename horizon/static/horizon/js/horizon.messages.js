@@ -44,6 +44,14 @@ horizon.alert = function (type, message, extra_tags) {
   return this_alert;
 };
 
+horizon.clearInfoMessages = function() {
+  $('#main_content .messages .alert.alert-info').remove();
+};
+
+horizon.clearWarningMessages = function() {
+  $('#main_content .messages .alert.alert-warning').remove();
+};
+
 horizon.clearErrorMessages = function() {
   $('#main_content .messages .alert.alert-danger').remove();
 };
@@ -73,6 +81,12 @@ horizon.autoDismissAlert = function ($alert) {
     }, horizon.conf.auto_fade_alerts.delay);
   }
 };
+
+horizon.autoDismissAlerts = function() {
+  $('#main_content .messages .alert').each(function() {
+    horizon.autoDismissAlert($(this));
+  });
+}
 
 horizon.addInitFunction(function () {
   // Bind AJAX message handling.

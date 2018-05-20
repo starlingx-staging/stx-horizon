@@ -12,6 +12,10 @@
     <dd>{{ router.tenant_id }}</dd>
     <dt>{% trans "Status" %}</dt>
     <dd>{{ router.status_label|capfirst }}</dd>
+    {% if router.host %}
+    <dt>{% trans "Host" %}</dt>
+    <dd>{{ router.host }}</dd>
+    {% endif %}
     <dt>{% trans "Admin State" %}</dt>
     <dd>{{ router.admin_state_label|default:_("Unknown") }}</dd>
     {% if dvr_supported %}

@@ -20,3 +20,15 @@ class SecurityGroups(horizon.Panel):
     name = _("Security Groups")
     slug = 'security_groups'
     permissions = ('openstack.services.network',)
+
+    def allowed(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return super(SecurityGroups, self).allowed(context)
+
+    def nav(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return True

@@ -1,0 +1,7 @@
+[run]
+branch = True
+source =  horizon
+omit = horizon/test/*
+
+[report]
+ignore_errors = True

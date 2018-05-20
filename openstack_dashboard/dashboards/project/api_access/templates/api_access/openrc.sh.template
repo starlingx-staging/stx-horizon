@@ -30,9 +30,19 @@ unset OS_TENANT_NAME
 # performing the action as the **user**.
 export OS_USERNAME="{{ user.username|shellfilter }}"
 
+# Remote Openstack clients will need to set this environment if
+# connecting to an HTTPS enabled endpoint
+CERT_MSG="Please enter a path for your CA certificate pem file, \
+or press enter if you are not using HTTPS: "
+read -p "$CERT_MSG" OS_CACERT_INPUT
+if [ ! -z "$OS_CACERT_INPUT" ]
+then
+    export OS_CACERT=$(readlink -f $OS_CACERT_INPUT)
+fi
+
 # With Keystone you pass the keystone password.
-echo "Please enter your OpenStack Password for project $OS_PROJECT_NAME as user $OS_USERNAME: "
-read -sr OS_PASSWORD_INPUT
+read -sp "Please enter your OpenStack Password for project $OS_PROJECT_NAME as user $OS_USERNAME: " OS_PASSWORD_INPUT
+echo
 export OS_PASSWORD=$OS_PASSWORD_INPUT
 
 # If your configuration has multiple regions, we set that information here.
@@ -43,3 +53,10 @@ if [ -z "$OS_REGION_NAME" ]; then unset OS_REGION_NAME; fi
 
 export OS_INTERFACE={{ interface }}
 export OS_IDENTITY_API_VERSION={{ os_identity_api_version }}
+
+if [ ! -z "${OS_PASSWORD}" ]; then
+        export PS1='[\u@\h \W(keystone_$OS_USERNAME)]\$ '
+else
+    echo "OpenStack Password for project $OS_PROJECT_NAME as user $OS_USERNAME is required."
+    export PS1='\h:\w\$ '
+fi

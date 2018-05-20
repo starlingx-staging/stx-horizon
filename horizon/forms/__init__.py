@@ -27,6 +27,7 @@ from horizon.forms.base import DateForm
 from horizon.forms.base import SelfHandlingForm
 from horizon.forms.base import SelfHandlingMixin
 from horizon.forms.fields import DynamicChoiceField
+from horizon.forms.fields import DynamicIntegerField
 from horizon.forms.fields import DynamicTypedChoiceField
 from horizon.forms.fields import ExternalFileField
 from horizon.forms.fields import ExternalUploadMeta
@@ -53,6 +54,7 @@ __all__ = [
     "ModalFormView",
     "ModalFormMixin",
     "DynamicTypedChoiceField",
+    "DynamicIntegerField",
     "DynamicChoiceField",
     "ExternalFileField",
     "ExternalUploadMeta",

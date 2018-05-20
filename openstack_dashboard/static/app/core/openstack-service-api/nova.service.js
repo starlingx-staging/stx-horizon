@@ -223,8 +223,16 @@
      */
     function createServer(newServer) {
       return apiService.post('/api/nova/servers/', newServer)
-        .error(function () {
-          toastService.add('error', gettext('Unable to create the server.'));
+        .error(function (error, status) {
+          var msg;
+          if (error.indexOf("<html") !== -1 || error.indexOf("<?xml") !== -1) {
+            msg = "HTTP Error Code: " + status;
+          }
+          else {
+            msg = "Detail: " + error;
+          }
+          toastService.add2('error', gettext("Unable to create the server."),
+                            gettext(msg));
         });
     }
 
@@ -597,8 +605,16 @@
           updated: updated,
           removed: removed
         }
-      ).error(function () {
-        toastService.add('error', gettext('Unable to edit the flavor extra specs.'));
+      ).error(function (error, status) {
+          var msg;
+          if (error.indexOf("<html") !== -1 || error.indexOf("<?xml") !== -1) {
+            msg = "HTTP Error Code: " + status;
+          }
+          else {
+            msg = "Detail: " + error;
+          }
+          toastService.add2('error', gettext("Unable to edit the flavor extra specs."),
+                            gettext(msg));
       });
     }
 

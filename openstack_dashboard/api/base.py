@@ -259,6 +259,16 @@ class QuotaSet(Sequence):
         return self.__add__(other)
 
 
+class ProjectSetting(object):
+    """Wrapper for individual tenant settings."""
+    def __init__(self, name, value):
+        self.name = name
+        self.value = value
+
+    def __repr__(self):
+        return "<Setting: (%s, %s)>" % (self.name, self.value)
+
+
 def get_service_from_catalog(catalog, service_type):
     if catalog:
         for service in catalog:
@@ -319,10 +329,16 @@ def get_url_for_service(service, region, endpoint_type):
     return None
 
 
+def is_TiS_region(request):
+    if not is_service_enabled(request, 'platform'):
+        return False
+    return True
+
+
 def url_for(request, service_type, endpoint_type=None, region=None):
     endpoint_type = endpoint_type or getattr(settings,
                                              'OPENSTACK_ENDPOINT_TYPE',
-                                             'publicURL')
+                                             'internalURL')
     fallback_endpoint_type = getattr(settings, 'SECONDARY_ENDPOINT_TYPE', None)
 
     catalog = request.user.service_catalog
@@ -367,3 +383,12 @@ def _get_endpoint_region(endpoint):
     both Keystone V2 and V3.
     """
     return endpoint.get('region_id') or endpoint.get('region')
+
+
+def get_request_page_size(request, limit=None):
+    default_limit = getattr(settings, 'API_RESULT_LIMIT', 1000)
+    try:
+        return min(int(limit), default_limit)
+    except Exception:
+        default_page_size = getattr(settings, 'API_RESULT_PAGE_SIZE', 20)
+        return request.session.get('horizon_pagesize', default_page_size)

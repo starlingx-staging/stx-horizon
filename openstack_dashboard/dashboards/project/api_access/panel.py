@@ -19,3 +19,15 @@ import horizon
 class ApiAccess(horizon.Panel):
     name = _("API Access")
     slug = 'api_access'
+
+    def allowed(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return super(ApiAccess, self).allowed(context)
+
+    def nav(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return True

@@ -18,6 +18,7 @@ from django.core.urlresolvers import reverse
 from django.core.urlresolvers import reverse_lazy
 from django.utils.translation import ugettext_lazy as _
 from django.utils.translation import ungettext_lazy
+from neutronclient.common import exceptions as neutron_exceptions
 
 from horizon import exceptions
 from horizon import tables
@@ -54,6 +55,12 @@ class DeleteSubnet(proj_tables.SubnetPolicyTargetMixin, tables.DeleteAction):
     def delete(self, request, obj_id):
         try:
             api.neutron.subnet_delete(request, obj_id)
+        except neutron_exceptions.NeutronClientException as e:
+            LOG.info(e.message)
+            network_id = self.table.kwargs['network_id']
+            redirect = reverse('horizon:admin:networks:detail',
+                               args=[network_id])
+            exceptions.handle(request, e.message, redirect=redirect)
         except Exception as e:
             LOG.info('Failed to delete subnet %(id)s: %(exc)s',
                      {'id': obj_id, 'exc': e})

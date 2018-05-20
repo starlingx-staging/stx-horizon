@@ -11,6 +11,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2016 Wind River Systems, Inc.
+#
 
 import logging
 
@@ -92,7 +95,11 @@ class UpdateSubnetInfoAction(CreateSubnetInfoAction):
                          widget=forms.TextInput(
                              attrs={'readonly': 'readonly'}),
                          help_text=_("Network address in CIDR format "
-                                     "(e.g. 192.168.0.0/24)"),
+                                     "(e.g. IPv4 address mode 192.168.0.0/24, "
+                                     "IPv6 address mode 2001:DB8::/48, "
+                                     "2001:DB8::/64). Note: IPv6 subnet "
+                                     "prefix is required to be /64 "
+                                     "when DHCP is enabled."),
                          version=forms.IPv4 | forms.IPv6,
                          mask=True)
     # NOTE(amotoki): When 'disabled' attribute is set for the ChoiceField
@@ -164,8 +171,21 @@ class UpdateSubnet(network_workflows.CreateNetwork):
         return message % name
 
     def get_success_url(self):
-        return reverse(self.success_url,
-                       args=(self.context.get('network_id'),))
+        url = self.success_url
+        args = (self.context.get('network_id'),)
+        referer = self.request.META.get('HTTP_REFERER')
+        if referer is not None:
+            url = "horizon:"
+            if "admin" in referer:
+                url += "admin:"
+            else:
+                url += "project:"
+            url += "networks:"
+            if "subnet" in referer:
+                url += "subnets:"
+                args = (self.context.get('subnet_id'),)
+            url += "detail"
+        return reverse(url, args=args)
 
     def _update_subnet(self, request, data):
         network_id = self.context.get('network_id')

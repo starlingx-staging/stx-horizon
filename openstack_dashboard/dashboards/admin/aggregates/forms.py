@@ -27,6 +27,7 @@ class UpdateAggregateForm(forms.SelfHandlingForm):
                            max_length=255)
     availability_zone = forms.CharField(label=_("Availability Zone"),
                                         required=False,
+                                        min_length=0,
                                         max_length=255)
 
     def handle(self, request, data):

@@ -16,6 +16,8 @@
 Views for managing volumes.
 """
 
+import logging
+
 from collections import OrderedDict
 import json
 
@@ -48,6 +50,8 @@ from openstack_dashboard.dashboards.project.volumes \
     import tables as volume_tables
 from openstack_dashboard.dashboards.project.volumes \
     import tabs as project_tabs
+
+LOG = logging.getLogger(__name__)
 
 
 class VolumeTableMixIn(object):
@@ -166,8 +170,13 @@ class DetailView(tabs.TabbedTableView):
             if snapshots:
                 setattr(volume, 'has_snapshot', True)
             for att in volume.attachments:
-                att['instance'] = nova.server_get(self.request,
-                                                  att['server_id'])
+                try:
+                    att['instance'] = nova.server_get(self.request,
+                                                      att['server_id'])
+                except Exception:
+                    att['instance'] = _("Unknown instance")
+                    LOG.error("Invalid server(%s) for volume:(%s)",
+                              att['server_id'], volume_id)
         except Exception:
             redirect = self.get_redirect_url()
             exceptions.handle(self.request,

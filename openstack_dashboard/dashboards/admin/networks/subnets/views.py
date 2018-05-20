@@ -11,6 +11,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2013-2015 Wind River Systems, Inc.
+#
 
 from django.core.urlresolvers import reverse
 
@@ -28,6 +31,15 @@ class CreateView(project_views.CreateView):
 
 class UpdateView(project_views.UpdateView):
     workflow_class = workflows.UpdateSubnet
+
+    def get_initial(self):
+        initial = super(UpdateView, self).get_initial()
+        subnet = self._get_object()
+        initial['provider_type'] = subnet.get('wrs-provider__network_type')
+        initial['provider_network'] = \
+            subnet.get('wrs-provider__physical_network')
+        initial['provider_id'] = subnet.get('wrs-provider__segmentation_id')
+        return initial
 
 
 class DetailView(project_views.DetailView):

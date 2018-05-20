@@ -11,6 +11,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2013-2017 Wind River Systems, Inc.
+#
 
 import logging
 
@@ -34,6 +37,9 @@ class UpdateDefaultQuotasAction(workflows.Action):
                                                      label=ifcb_label)
     metadata_items = forms.IntegerField(min_value=-1,
                                         label=_("Metadata Items"))
+    server_group_members = forms.IntegerField(min_value=-1,
+                                              label=_("Server Group Members"))
+    server_groups = forms.IntegerField(min_value=-1, label=_("Server Groups"))
     ram = forms.IntegerField(min_value=-1, label=_("RAM (MB)"))
     floating_ips = forms.IntegerField(min_value=-1, label=_("Floating IPs"))
     key_pairs = forms.IntegerField(min_value=-1, label=_("Key Pairs"))
@@ -87,9 +93,15 @@ class UpdateDefaultQuotas(workflows.Workflow):
     def handle(self, request, data):
         # Update the default quotas.
         # `fixed_ips` update for quota class is not supported by novaclient
+        # WRS: Also remove 'floating_ips', 'security_group_rules' and
+        # 'security_groups' as they are also no longer supported by novaclient
         nova_data = {
             key: value for key, value in data.items()
-            if key in quotas.NOVA_QUOTA_FIELDS and key != 'fixed_ips'
+            if key in quotas.NOVA_QUOTA_FIELDS and (key != 'fixed_ips' and
+                                                    key != 'floating_ips' and
+                                                    key !=
+                                                    'security_group_rules' and
+                                                    key != 'security_groups')
         }
         is_error_nova = False
         is_error_cinder = False

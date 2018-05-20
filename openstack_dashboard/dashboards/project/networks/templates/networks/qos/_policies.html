@@ -1,0 +1,8 @@
+{% for type, policies in qos.policies.items %}
+    <h4>{{ type }}</h4>
+    <ul>
+    {% for name, value in policies.items %}
+      <li>{{ name }}: {{ value }}</li>
+    {% endfor %}
+    </ul>
+{% endfor %}

@@ -44,6 +44,10 @@ class CreateView(forms.ModalFormView):
         return reverse(self.url,
                        args=(self.kwargs['network_id'],))
 
+    def get_cancel_url(self):
+        return reverse(self.url,
+                       args=(self.kwargs['network_id'],))
+
     @memoized.memoized_method
     def get_object(self):
         try:

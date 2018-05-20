@@ -182,11 +182,14 @@ class Object(generic.View):
         data = form.clean()
 
         if object_name[-1] == '/':
-            result = api.swift.swift_create_pseudo_folder(
-                request,
-                container,
-                object_name
-            )
+            try:
+                result = api.swift.swift_create_pseudo_folder(
+                    request,
+                    container,
+                    object_name
+                )
+            except exceptions.AlreadyExists as e:
+                return rest_utils.JSONResponse(str(e), 409)
         else:
             result = api.swift.swift_upload_object(
                 request,

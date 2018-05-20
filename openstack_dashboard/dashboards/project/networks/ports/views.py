@@ -172,8 +172,14 @@ class UpdateView(forms.ModalFormView):
     page_title = _("Edit Port")
 
     def get_success_url(self):
-        return reverse(self.success_url,
-                       args=(self.kwargs['network_id'],))
+        http_referer = self.request.META.get('HTTP_REFERER')
+        if http_referer is not None and "port" in http_referer:
+            args = (self.kwargs['port_id'],)
+            url = self.submit_url.replace("editport", "ports:detail")
+        else:
+            args = (self.kwargs['network_id'],)
+            url = self.success_url
+        return reverse(url, args=args)
 
     @memoized.memoized_method
     def _get_object(self, *args, **kwargs):

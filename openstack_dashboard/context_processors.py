@@ -19,12 +19,21 @@
 Context processors used by Horizon.
 """
 
+import ast
+from collections import namedtuple
+import logging
 import re
+from time import time
 
 from django.conf import settings
-
 from horizon import conf
+from openstack_dashboard import api
 from openstack_dashboard.contrib.developer.profiler import api as profiler
+
+system_name_cache = ''
+cache_update_time = 0
+
+LOG = logging.getLogger(__name__)
 
 
 def openstack(request):
@@ -40,17 +49,37 @@ def openstack(request):
         A dictionary containing information about region support, the current
         region, and available regions.
     """
+    global system_name_cache
+    global cache_update_time
     context = {}
 
     # Auth/Keystone context
     context.setdefault('authorized_tenants', [])
     if request.user.is_authenticated():
+        # WRS: Attempt to retrieve the authorized tenants from
+        # the cookie if it has been cached
+        tenant_cookie = request.COOKIES.get("authorized_tenants", None)
+        if tenant_cookie:
+            LOG.debug("Retrieved 'authorized_tenants' from COOKIE: %s",
+                      tenant_cookie)
+            tenant_list = ast.literal_eval(tenant_cookie)
+            tenants = []
+            for tenant in tenant_list:
+                tenant = namedtuple('projects',
+                                    tenant.keys())(*tenant.values())
+                tenants.append(tenant)
+        else:
+            tenants = request.user.authorized_tenants
+            LOG.debug("Retrieved authorized tenants from Keystone: %s",
+                      tenants)
+
         context['authorized_tenants'] = [
-            tenant for tenant in
-            request.user.authorized_tenants if tenant.enabled]
+            t for t in tenants if t.enabled]
 
     # Region context/support
     available_regions = getattr(settings, 'AVAILABLE_REGIONS', [])
+    available_regions = [a for a in available_regions if a not in
+                         getattr(settings, 'REGION_EXCLUSIONS', [])]
     regions = {'support': len(available_regions) > 1,
                'current': {'endpoint': request.session.get('region_endpoint'),
                            'name': request.session.get('region_name')},
@@ -97,6 +126,25 @@ def openstack(request):
             hmac_keys, parent_id=index_view_id)
 
     context['JS_CATALOG'] = get_js_catalog(conf)
+
+    if (request.user.is_authenticated() and request.user.is_superuser and
+            api.base.is_TiS_region(request)):
+
+        cur_time = long(time())
+        delta_time = cur_time - cache_update_time
+        if delta_time >= 60:
+            # Get system name
+            try:
+                systems = api.sysinv.system_list(request)
+                system_name_cache = systems[0].name
+                cache_update_time = cur_time
+            except Exception:
+                system_name_cache = ''
+        context['system_name'] = system_name_cache
+        context['alarmbanner'] = True
+    else:
+        context['system_name'] = ''
+        context['alarmbanner'] = False
 
     return context
 

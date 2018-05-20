@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% load i18n breadcrumb_nav %}
+{% block title %}{% trans "QoS Policy Detail"%}{% endblock %}
+
+{% block main %}
+  {% include "admin/networks/qos/_detail.html" %}
+{% endblock %}

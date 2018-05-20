@@ -127,6 +127,11 @@ def download_rc_file_v2(request):
     context = _get_openrc_credentials(request)
     context['os_identity_api_version'] = 2
     context['os_auth_version'] = 2
+
+    # sanity fix for removing v3 from the url if present
+    if utils.has_in_url_path(context['auth_url'], '/v3'):
+        context['auth_url'] = \
+            utils.url_path_replace(context['auth_url'], '/v3', '/v2.0', 1)
     return _download_rc_file_for_template(request, context, template)
 
 

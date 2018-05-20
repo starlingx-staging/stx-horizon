@@ -23,6 +23,7 @@ in https://wiki.openstack.org/wiki/APIChangeGuidelines.
 
 from openstack_dashboard.api.rest import cinder
 from openstack_dashboard.api.rest import config
+from openstack_dashboard.api.rest import dc_manager
 from openstack_dashboard.api.rest import glance
 from openstack_dashboard.api.rest import heat
 from openstack_dashboard.api.rest import keystone
@@ -31,11 +32,13 @@ from openstack_dashboard.api.rest import neutron
 from openstack_dashboard.api.rest import nova
 from openstack_dashboard.api.rest import policy
 from openstack_dashboard.api.rest import swift
+from openstack_dashboard.api.rest import sysinv
 
 
 __all__ = [
     'cinder',
     'config',
+    'dc_manager',
     'glance',
     'heat',
     'keystone',
@@ -44,4 +47,5 @@ __all__ = [
     'nova',
     'policy',
     'swift',
+    'sysinv',
 ]

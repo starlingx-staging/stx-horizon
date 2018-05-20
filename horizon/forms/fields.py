@@ -11,6 +11,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2013-2017 Wind River Systems, Inc.
+#
 
 import itertools
 import re
@@ -22,6 +25,7 @@ from oslo_utils import uuidutils
 
 from django.core.exceptions import ValidationError
 from django.core import urlresolvers
+from django.core import validators
 from django.forms import fields
 from django.forms import forms
 from django.forms.utils import flatatt
@@ -40,8 +44,9 @@ IPv6 = 2
 
 
 class IPField(fields.Field):
-    """Form field for entering IP/range values, with validation.
+    """Form field for entering IP/range values.
 
+    Form field for entering IP/range values, with validation.
     Supports IPv4/IPv6 in the format:
     .. xxx.xxx.xxx.xxx
     .. xxx.xxx.xxx.xxx/zz
@@ -676,3 +681,32 @@ class ExternalUploadMeta(forms.DeclarativeFieldsMetaclass):
                 new_attrs[meth_name] = make_clean_method(new_attr_name)
         return super(ExternalUploadMeta, mcs).__new__(
             mcs, name, bases, new_attrs)
+
+
+class DynamicIntegerField(fields.IntegerField):
+    """A subclass of ``IntegerField``.
+
+    A subclass of ``IntegerField`` with additional properties that make
+    dynamically updating its range easier.
+    """
+    def set_max_value(self, max_value):
+        if max_value is not None:
+            for v in self.validators:
+                if isinstance(v, validators.MaxValueValidator):
+                    self.validators.remove(v)
+
+            self.max_value = max_value
+            self.validators.append(validators.MaxValueValidator(max_value))
+            self.widget_attrs(self.widget)
+            self.widget.attrs['max'] = self.max_value
+
+    def set_min_value(self, min_value):
+        if min_value is not None:
+            for v in self.validators:
+                if isinstance(v, validators.MinValueValidator):
+                    self.validators.remove(v)
+
+            self.min_value = min_value
+            self.validators.append(validators.MinValueValidator(min_value))
+            self.widget_attrs(self.widget)
+            self.widget.attrs['min'] = self.min_value

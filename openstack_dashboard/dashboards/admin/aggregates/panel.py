@@ -28,6 +28,8 @@ class Aggregates(horizon.Panel):
     permissions = ('openstack.services.compute',)
 
     def allowed(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
         # extend basic permission-based check with a check to see whether
         # the Aggregates extension is even enabled in nova
         try:
@@ -38,6 +40,12 @@ class Aggregates(horizon.Panel):
         except Exception:
             LOG.error("Call to list supported extensions failed. This is "
                       "likely due to a problem communicating with the Nova "
-                      "endpoint. Host Aggregates panel will not be displayed.")
-            return False
+                      "endpoint.")
+            return True
         return super(Aggregates, self).allowed(context)
+
+    def nav(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return True

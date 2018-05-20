@@ -32,6 +32,7 @@ class MultiTableMixin(object):
         self._tables = {}
         self._data_methods = defaultdict(list)
         self.get_data_methods(self.table_classes, self._data_methods)
+        self._limit = 20
 
     def _get_data_dict(self):
         if not self._data:
@@ -118,6 +119,9 @@ class MultiTableMixin(object):
     def needs_filter_first(self, table):
         return False
 
+    def get_limit_count(self, table):
+        return None
+
     def handle_table(self, table):
         name = table.name
         data = self._get_data_dict()
@@ -126,6 +130,7 @@ class MultiTableMixin(object):
             self.needs_filter_first(table)
         self._tables[name]._meta.has_more_data = self.has_more_data(table)
         self._tables[name]._meta.has_prev_data = self.has_prev_data(table)
+        self._tables[name]._meta.limit_count = self.get_limit_count(table)
         handled = self._tables[name].maybe_handle()
         return handled
 

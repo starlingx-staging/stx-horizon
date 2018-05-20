@@ -108,7 +108,7 @@ def normalize(value, unit):
 def _normalize_information(value, unit):
     value = decimal.Decimal(str(value))
 
-    while value < 1:
+    while value < 1 and value != 0:
         prev_unit = functions.previous_key(INFORMATION_UNITS, unit)
         if prev_unit is None:
             break

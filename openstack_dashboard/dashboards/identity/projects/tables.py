@@ -9,6 +9,9 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+#
+# Copyright (c) 2013-2015 Wind River Systems, Inc.
+#
 
 from django.core.urlresolvers import reverse
 from django.template import defaultfilters as filters
@@ -216,6 +219,10 @@ class UpdateRow(tables.Row):
         return project_info
 
 
+class TenantLimitAction(tables.LimitAction):
+    verbose_name = _("Tenants")
+
+
 class TenantsTable(tables.DataTable):
     name = tables.WrappingColumn('name', verbose_name=_('Name'),
                                  link=("horizon:identity:projects:detail"),
@@ -263,4 +270,6 @@ class TenantsTable(tables.DataTable):
                        RescopeTokenToProject)
         table_actions = (TenantFilterAction, CreateProject,
                          DeleteTenantsAction)
-        pagination_param = "tenant_marker"
+        if api.keystone.VERSIONS.active < 3:
+            table_actions = table_actions + (TenantLimitAction,)
+            pagination_param = "tenant_marker"

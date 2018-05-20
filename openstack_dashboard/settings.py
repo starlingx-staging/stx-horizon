@@ -153,6 +153,15 @@ TEMPLATES = [
     },
 ]
 
+# Workaround for template loading of titanium theme
+if not os.path.exists('/opt/branding/applied'):
+    TEMPLATES[0]['DIRS'] = ['/usr/share/openstack-dashboard/'
+                            'openstack_dashboard/themes/titanium/templates',
+                            os.path.join(ROOT_PATH, 'templates'), ]
+elif os.path.exists('/opt/branding/applied/templates'):
+    TEMPLATES[0]['DIRS'] = ['/opt/branding/applied/templates',
+                            os.path.join(ROOT_PATH, 'templates'), ]
+
 STATICFILES_FINDERS = (
     'django.contrib.staticfiles.finders.FileSystemFinder',
     'horizon.contrib.staticfiles.finders.HorizonStaticFinder',
@@ -193,7 +202,9 @@ AUTHENTICATION_URLS = ['openstack_auth.urls']
 AUTH_USER_MODEL = 'openstack_auth.User'
 MESSAGE_STORAGE = 'django.contrib.messages.storage.fallback.FallbackStorage'
 
-SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
+SESSION_ENGINE = 'django.contrib.sessions.backends.file'
+SESSION_FILE_PATH = '/var/tmp'
+SESSION_COOKIE_AGE = 1800
 SESSION_COOKIE_HTTPONLY = True
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_COOKIE_SECURE = False
@@ -201,7 +212,7 @@ SESSION_COOKIE_SECURE = False
 # SESSION_TIMEOUT is a method to supersede the token timeout with a shorter
 # horizon session timeout (in seconds).  So if your token expires in 60
 # minutes, a value of 1800 will log users out after 30 minutes
-SESSION_TIMEOUT = 3600
+SESSION_TIMEOUT = 3300
 
 # When using cookie-based sessions, log error when the session cookie exceeds
 # the following size (common browsers drop cookies above a certain size):
@@ -323,7 +334,7 @@ COMPRESS_OFFLINE_CONTEXT = 'horizon.themes.offline_context'
 
 # Dictionary of currently available angular features
 ANGULAR_FEATURES = {
-    'images_panel': True,
+    'images_panel': False,
     'flavors_panel': False,
     'users_panel': False,
     'roles_panel': False,
@@ -332,6 +343,14 @@ ANGULAR_FEATURES = {
 
 # Notice all customizable configurations should be above this line
 XSTATIC_MODULES = settings_utils.BASE_XSTATIC_MODULES
+
+# For Horizon openstack_auth login lockout
+LOCKOUT_PERIOD_SEC = 300.0
+LOCKOUT_RETRIES_NUM = 3
+
+# Default table limits
+TABLE_LIMITS = [10, 20, 50, 100, 500, 1000]
+
 
 OPENSTACK_PROFILER = {
     'enabled': False
@@ -480,3 +499,6 @@ if 'HORIZON_IMAGES_ALLOW_UPLOAD' in globals():
         message += ' Keep in mind that HORIZON_IMAGES_ALLOW_UPLOAD set to ' \
                    'False overrides the value of HORIZON_IMAGES_UPLOAD_MODE.'
     _LOG.warning(message)
+
+# Enable flavor edit
+ENABLE_FLAVOR_EDIT = True

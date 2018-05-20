@@ -28,20 +28,26 @@ MESSAGES_PATH = getattr(settings, 'MESSAGES_PATH', None)
 
 
 def get_user_home(user):
-    try:
-        token = user.token
-    except AttributeError:
-        raise exceptions.NotAuthenticated()
-    # Domain Admin, Project Admin will default to identity
-    dashboard = None
-    if token.project.get('id') is None or user.is_superuser:
+    dashboard = horizon.get_default_dashboard()
+    dc_mode = getattr(settings, 'DC_MODE', False)
+
+    if user.is_superuser:
+        if getattr(user, 'services_region', None) == 'SystemController':
+            try:
+                dashboard = horizon.get_dashboard('dc_admin')
+            except base.NotRegistered:
+                pass
+
+    if getattr(user, 'services_region', None) == 'RegionOne' and dc_mode:
         try:
-            dashboard = horizon.get_dashboard('identity')
+            if user.is_superuser:
+                dashboard = horizon.get_dashboard('admin').\
+                    get_panel("inventory")
+            else:
+                dashboard = horizon.get_dashboard('project').\
+                    get_panel("api_access")
         except base.NotRegistered:
             pass
-
-    if dashboard is None:
-        dashboard = horizon.get_default_dashboard()
 
     return dashboard.get_absolute_url()
 

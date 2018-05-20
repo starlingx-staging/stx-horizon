@@ -12,6 +12,10 @@
     {% endif %}
     <dt>{% trans "Status" %}</dt>
     <dd>{{ volume.status_label|capfirst }}</dd>
+    {% if volume.error %}
+    <dt>{% trans "Error Detail" %}</dt>
+    <dd>{{ volume.error }}</dd>
+    {% endif %}
   </dl>
 
   <h4>{% trans "Specs" %}</h4>

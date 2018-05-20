@@ -205,6 +205,8 @@ class CreateProjectWorkflowTests(test.BaseAdminViewTests):
         roles = self.roles.list()
 
         # init
+        api.base.is_service_enabled(IsA(http.HttpRequest), 'platform') \
+            .MultipleTimes().AndReturn(True)
         api.base.is_service_enabled(IsA(http.HttpRequest), 'network') \
             .MultipleTimes().AndReturn(True)
         api.base.is_service_enabled(IsA(http.HttpRequest), 'compute') \
@@ -344,6 +346,11 @@ class CreateProjectWorkflowTests(test.BaseAdminViewTests):
         phone_number = "+81-3-1234-5678"
 
         # init
+
+        # WRS:
+        api.cinder.is_volume_service_enabled(IsA(http.HttpRequest)) \
+            .MultipleTimes().AndReturn(True)
+
         quotas.get_disabled_quotas(IsA(http.HttpRequest)) \
             .AndReturn(self.disabled_quotas.first())
         quotas.get_default_quota_data(IsA(http.HttpRequest)).AndReturn(quota)

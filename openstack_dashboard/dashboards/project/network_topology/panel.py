@@ -25,3 +25,15 @@ class NetworkTopology(horizon.Panel):
     name = _("Network Topology")
     slug = 'network_topology'
     permissions = ('openstack.services.network', )
+
+    def allowed(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return super(NetworkTopology, self).allowed(context)
+
+    def nav(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return True

@@ -18,11 +18,17 @@
     <dd>{{ network.router__external|yesno|capfirst }}</dd>
     <dt title="{% trans 'MTU' %}">{% trans "MTU" %}</dt>
     <dd>{{ network.mtu|default:_("Unknown") }}</dd>
+    <dt>{% trans "VLAN Transparent" %}</dt>
+    <dd>{{ network.vlan_transparent|default:False|yesno|capfirst}}</dd>
     {% if network.provider__network_type %}
     <dt title="{% trans 'Provider Network' %}">{% trans "Provider Network" %}</dt>
     <dd>{% trans "Network Type:" %} {{ network.provider__network_type|default:_("Unknown") }}</dd>
     <dd>{% trans "Physical Network:" %} {{ network.provider__physical_network|default:_("-") }}</dd>
     <dd>{% trans "Segmentation ID:" %} {{ network.provider__segmentation_id|default:_("-") }}</dd>
+    {% endif %}
+    {% if network.qos_policy %}
+    <dt>{% trans "QoS Policy" %}</dt>
+    <dd>{% include "project/networks/qos/_policies.html" with qos=network.qos_policy %}</dd>
     {% endif %}
   </dl>
 </div>

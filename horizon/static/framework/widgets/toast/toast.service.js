@@ -44,6 +44,7 @@
     var service = {
       types: {},
       add: add,
+      add2: add2,
       get: get,
       cancel: cancel,
       clearAll: clearAll,
@@ -105,6 +106,22 @@
         type: type === 'error' ? 'danger' : type,
         typeMsg: this.types[type],
         msg: msg,
+        msg2: null,
+        cancel: cancel
+      };
+      autoDismiss(toast);
+      toasts.push(toast);
+    }
+
+    /**
+      * Create a toast object and push it to the toasts array.
+      */
+    function add2(type, msg, msg2) {
+      var toast = {
+        type: type === 'error' ? 'danger' : type,
+        typeMsg: this.types[type],
+        msg: msg,
+        msg2: msg2,
         cancel: cancel
       };
       autoDismiss(toast);

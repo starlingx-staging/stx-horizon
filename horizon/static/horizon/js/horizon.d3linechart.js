@@ -237,7 +237,7 @@ horizon.d3_line_chart = {
       self.slider_element = $(jquery_element.data('slider-selector')).get(0);
 
       // Set the data, undefined if it doesn't exist
-      self.data = jquery_element.data('data');
+      self.data = jquery_element.data('url');
       self.url_parameters = jquery_element.data('url_parameters');
 
       if (typeof self.data === 'string') {
@@ -332,8 +332,8 @@ horizon.d3_line_chart = {
         'bar_chart_selector', 'composed_chart_selector',
         'higlight_last_point', 'axes_y_label'];
 
-      jQuery.each(allowed_settings, function(index, setting_name) {
-        if (settings[setting_name] !== undefined){
+      $.each(allowed_settings, function(index, setting_name) {
+        if (typeof settings[setting_name] !== "undefined"){
           self.settings[setting_name] = settings[setting_name];
         }
       });
@@ -416,17 +416,21 @@ horizon.d3_line_chart = {
       self.series = data.series;
       self.stats = data.stats;
       // The highest priority settings are sent with the data.
-      self.apply_settings(data.settings);
-
-      if (self.series.length <= 0) {
-        $(self.html_element).html(gettext('No data available.'));
-        $(self.legend_element).empty();
-        // Setting a fix height breaks things when legend is getting
-        // bigger.
-        $(self.legend_element).css('height', '');
-      } else {
-        self.render();
+      if (data.settings) {
+        self.apply_settings(data.settings);
       }
+      if (self.series) {
+        if (self.series.length <= 0) {
+          $(self.html_element).html(gettext('No data available.'));
+          $(self.legend_element).empty();
+          // Setting a fix height breaks things when legend is getting
+          // bigger.
+          $(self.legend_element).css('height', '');
+        } else {
+          self.render();
+        }
+      }
+      horizon.refresh.datetime();
     };
 
     /************************************************************************/
@@ -467,16 +471,20 @@ horizon.d3_line_chart = {
       var self = this;
       var last_point, last_point_color;
 
-      $.map(self.series, function (serie) {
-        serie.color = last_point_color = self.color(serie.name);
-        $.map(serie.data, function (statistic) {
-          // need to parse each date
-          statistic.x = d3.time.format.utc('%Y-%m-%dT%H:%M:%S').parse(statistic.x);
-          statistic.x = statistic.x.getTime() / 1000;
-          last_point = statistic;
-          last_point.color = serie.color;
+      if (self.series) {
+        $.map(self.series, function (serie) {
+          serie.color = last_point_color = self.color(serie.name);
+          $.map(serie.data, function (statistic) {
+            // need to parse each date
+            //  We know the dates are UTC. We need to append "+00:00" to make d3 respect this
+            statistic.x = statistic.x + "+00:00"
+            statistic.x = d3.time.format.utc('%Y-%m-%dT%H:%M:%S+00:00').parse(statistic.x);
+            statistic.x = statistic.x.getTime() / 1000;
+            last_point = statistic;
+            last_point.color = serie.color;
+          });
         });
-      });
+      }
 
       var renderer = self.settings.renderer;
       if (renderer === 'StaticAxes'){
@@ -506,6 +514,7 @@ horizon.d3_line_chart = {
         xMax: self.settings.xMax,
         interpolation: self.settings.interpolation
       });
+      self.graph = graph;
 
       /*
         TODO(lsmola) add jQuery UI slider to make this work
@@ -552,6 +561,7 @@ horizon.d3_line_chart = {
 
         new Rickshaw.Graph.Behavior.Series.Toggle({
           graph: graph,
+          timeFixture: new Rickshaw.Fixtures.Time.Local(),
           legend: legend
         });
 
@@ -659,7 +669,7 @@ horizon.d3_line_chart = {
   init: function(selector, settings) {
     var self = this;
     $(selector).each(function() {
-      self.refresh(this, settings);
+      self.redraw(this, settings);
     });
 
     if (settings !== undefined && settings.auto_resize) {
@@ -708,6 +718,16 @@ horizon.d3_line_chart = {
       this.charts.add_or_update(chart)
     */
     chart.refresh();
+    $(html_element).data('chart', chart);
+  },
+  redraw: function(html_element) {
+    var chart = $(html_element).data('chart');
+    if ((typeof chart !== "undefined")
+         && (typeof chart.graph !== "undefined")) {
+       chart.get_size(); // calculate the size
+       chart.graph.setSize( chart.width, chart.height); // update the svg dimensions
+       chart.graph.render(); // re-render data
+    }
   },
 
   /**

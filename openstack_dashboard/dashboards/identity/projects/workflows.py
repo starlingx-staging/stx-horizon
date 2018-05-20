@@ -15,6 +15,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2013-2017 Wind River Systems, Inc.
+#
 
 import logging
 
@@ -34,6 +37,7 @@ from openstack_dashboard import api
 from openstack_dashboard.api import cinder
 from openstack_dashboard.api import keystone
 from openstack_dashboard.api import nova
+from openstack_dashboard import project_settings
 from openstack_dashboard.usage import quotas
 from openstack_dashboard.utils import identity
 
@@ -46,6 +50,29 @@ PROJECT_GROUP_ENABLED = keystone.VERSIONS.active >= 3
 PROJECT_USER_MEMBER_SLUG = "update_members"
 PROJECT_GROUP_MEMBER_SLUG = "update_group_members"
 COMMON_HORIZONTAL_TEMPLATE = "identity/projects/_common_horizontal_form.html"
+
+
+class UpdateProjectSettingsAction(workflows.Action):
+    # Neutron
+    mac_filtering = forms.BooleanField(label=_("Source MAC Filtering"),
+                                       initial=True, required=False)
+
+    def __init__(self, request, *args, **kwargs):
+        super(UpdateProjectSettingsAction, self).__init__(request,
+                                                          *args,
+                                                          **kwargs)
+
+    class Meta(object):
+        name = _("Settings")
+        slug = 'update_settings'
+        help_text = _("From here you can set default"
+                      " settings for the project.")
+
+
+class UpdateProjectSettings(workflows.Step):
+    action_class = UpdateProjectSettingsAction
+    depends_on = ("project_id",)
+    contributes = project_settings.SETTING_FIELDS
 
 
 class ProjectQuotaAction(workflows.Action):
@@ -243,6 +270,19 @@ class UpdateProjectMembersAction(workflows.MembershipAction):
         except Exception:
             exceptions.handle(request, err_msg)
         users_list = [(user.id, user.name) for user in all_users]
+
+        users_list = []
+        for user in all_users:
+            tenants = []
+            has_more = False
+            services_user = False
+            tenants, has_more = api.keystone.tenant_list(request, user=user.id)
+            for tenant in tenants:
+                if (getattr(user, 'tenantId', '') == tenant.id) and \
+                        (tenant.name == 'services'):
+                    services_user = True
+            if services_user is False:
+                users_list.append((user.id, user.name))
 
         # Get list of roles
         role_list = []
@@ -443,11 +483,23 @@ class CreateProject(CommonQuotaWorkflow):
 
     def __init__(self, request=None, context_seed=None, entry_point=None,
                  *args, **kwargs):
-        if PROJECT_GROUP_ENABLED:
+        if api.base.is_TiS_region(request):
             self.default_steps = (CreateProjectInfo,
                                   UpdateProjectMembers,
-                                  UpdateProjectGroups,
-                                  CreateProjectQuota)
+                                  CreateProjectQuota,
+                                  UpdateProjectSettings)
+        if PROJECT_GROUP_ENABLED:
+            if api.base.is_TiS_region(request):
+                self.default_steps = (CreateProjectInfo,
+                                      UpdateProjectMembers,
+                                      UpdateProjectGroups,
+                                      CreateProjectQuota,
+                                      UpdateProjectSettings)
+            else:
+                self.default_steps = (CreateProjectInfo,
+                                      UpdateProjectMembers,
+                                      UpdateProjectGroups,
+                                      CreateProjectQuota)
         super(CreateProject, self).__init__(request=request,
                                             context_seed=context_seed,
                                             entry_point=entry_point,
@@ -568,6 +620,19 @@ class CreateProject(CommonQuotaWorkflow):
             self._update_project_groups(request, data, project_id)
         if keystone.is_cloud_admin(request):
             self._update_project_quota(request, data, project_id)
+
+        # Update the project settings.
+        if api.base.is_TiS_region(request):
+            try:
+                neutron_data = dict([(key, data[key]) for key in
+                                     project_settings.NEUTRON_SETTING_FIELDS])
+                api.neutron.tenant_setting_update(request,
+                                                  project_id,
+                                                  **neutron_data)
+            except Exception:
+                exceptions.handle(request,
+                                  _('Unable to set project settings.'))
+
         return True
 
 
@@ -655,12 +720,23 @@ class UpdateProject(CommonQuotaWorkflow):
 
     def __init__(self, request=None, context_seed=None, entry_point=None,
                  *args, **kwargs):
-        if PROJECT_GROUP_ENABLED:
+        if api.base.is_TiS_region(request):
             self.default_steps = (UpdateProjectInfo,
                                   UpdateProjectMembers,
-                                  UpdateProjectGroups,
-                                  UpdateProjectQuota)
-
+                                  UpdateProjectQuota,
+                                  UpdateProjectSettings)
+        if PROJECT_GROUP_ENABLED:
+            if api.base.is_TiS_region(request):
+                self.default_steps = (UpdateProjectInfo,
+                                      UpdateProjectMembers,
+                                      UpdateProjectGroups,
+                                      UpdateProjectQuota,
+                                      UpdateProjectSettings)
+            else:
+                self.default_steps = (UpdateProjectInfo,
+                                      UpdateProjectMembers,
+                                      UpdateProjectGroups,
+                                      UpdateProjectQuota)
         super(UpdateProject, self).__init__(request=request,
                                             context_seed=context_seed,
                                             entry_point=entry_point,
@@ -955,6 +1031,20 @@ class UpdateProject(CommonQuotaWorkflow):
             ret = self._update_project_quota(request, data, project_id)
             if not ret:
                 return False
+
+        # Update the project settings.
+        if api.base.is_TiS_region(request):
+            try:
+                neutron_data = dict([(key, data[key]) for key in
+                                     project_settings.NEUTRON_SETTING_FIELDS])
+                api.neutron.tenant_setting_update(request,
+                                                  project_id,
+                                                  **neutron_data)
+            except Exception:
+                exceptions.handle(request,
+                                  _('Modified project information, members '
+                                    'and quotas, but unable to modify '
+                                    'project settings.'))
 
         return True
 

@@ -21,6 +21,7 @@ import logging
 from django.core.urlresolvers import reverse
 from django.core.urlresolvers import reverse_lazy
 from django.utils.translation import ugettext_lazy as _
+from neutronclient.common import exceptions as neutron_exceptions
 
 from horizon import exceptions
 from horizon import forms
@@ -128,13 +129,6 @@ class UpdateForm(forms.SelfHandlingForm):
                                                               "dvr", "update")
         if not self.dvr_allowed:
             del self.fields['mode']
-        elif self.initial.get('mode') == 'distributed':
-            # Neutron supports only changing from centralized to
-            # distributed now.
-            mode_choices = [('distributed', _('Distributed'))]
-            self.fields['mode'].widget = forms.TextInput(attrs={'readonly':
-                                                                'readonly'})
-            self.fields['mode'].choices = mode_choices
         else:
             mode_choices = [('centralized', _('Centralized')),
                             ('distributed', _('Distributed'))]
@@ -162,6 +156,9 @@ class UpdateForm(forms.SelfHandlingForm):
             msg = _('Router %s was successfully updated.') % data['name']
             messages.success(request, msg)
             return router
+        except neutron_exceptions.NeutronClientException as e:
+            LOG.info(e.message)
+            exceptions.handle(request, e.message, redirect=self.redirect_url)
         except Exception as exc:
             LOG.info('Failed to update router %(id)s: %(exc)s',
                      {'id': self.initial['router_id'], 'exc': exc})

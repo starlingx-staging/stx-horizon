@@ -12,6 +12,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2013-2016 Wind River Systems, Inc.
+#
+
 
 """
 Views for managing Neutron Routers.
@@ -145,6 +149,20 @@ class DetailView(tabs.TabbedTableView):
             exceptions.handle(self.request, msg)
         return ports
 
+    @memoized.memoized_method
+    def _get_portforwardings(self):
+        try:
+            rules = api.neutron.portforwarding_list(
+                self.request, router_id=self.kwargs['router_id'])
+            for r in rules:
+                setattr(r, 'port', api.neutron.port_get(
+                    self.request, r['port_id']))
+        except Exception:
+            rules = []
+            msg = _('Unable to retrieve port forwarding details.')
+            exceptions.handle(self.request, msg)
+        return rules
+
     def get_context_data(self, **kwargs):
         context = super(DetailView, self).get_context_data(**kwargs)
         router = self._get_data()
@@ -167,8 +185,14 @@ class DetailView(tabs.TabbedTableView):
     def get_tabs(self, request, *args, **kwargs):
         router = self._get_data()
         ports = self._get_ports()
+        if api.base.is_TiS_region(request):
+            portforwardings = self._get_portforwardings()
+        else:
+            portforwardings = None
         return self.tab_group_class(request, router=router,
-                                    ports=ports, **kwargs)
+                                    ports=ports,
+                                    portforwardings=portforwardings,
+                                    **kwargs)
 
 
 class CreateView(forms.ModalFormView):

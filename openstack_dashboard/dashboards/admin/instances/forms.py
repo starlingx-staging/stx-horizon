@@ -11,10 +11,13 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+#
+# Copyright (c) 2013-2017 Wind River Systems, Inc.
+#
 
 from django.core.urlresolvers import reverse
 from django.utils.translation import ugettext_lazy as _
+from novaclient import exceptions as nova_exceptions
 
 from horizon import exceptions
 from horizon import forms
@@ -31,8 +34,8 @@ class LiveMigrateForm(forms.SelfHandlingForm):
     host = forms.ThemableChoiceField(
         label=_("New Host"),
         help_text=_("Choose a Host to migrate to."))
-    disk_over_commit = forms.BooleanField(label=_("Disk Over Commit"),
-                                          initial=False, required=False)
+    # disk_over_commit = forms.BooleanField(label=_("Disk Over Commit"),
+    #                                      initial=False, required=False)
     block_migration = forms.BooleanField(label=_("Block Migration"),
                                          initial=False, required=False)
 
@@ -54,8 +57,7 @@ class LiveMigrateForm(forms.SelfHandlingForm):
                      if (host.service.startswith('compute') and
                          host.host_name != current_host)]
         if host_list:
-            host_list.insert(0, ("AUTO_SCHEDULE",
-                                 _("Automatically schedule new host.")))
+            host_list.insert(0, ("auto_schedule", _("Auto schedule host")))
         else:
             host_list.insert(0, ("", _("No other hosts available")))
         return sorted(host_list)
@@ -63,22 +65,34 @@ class LiveMigrateForm(forms.SelfHandlingForm):
     def handle(self, request, data):
         try:
             block_migration = data['block_migration']
-            disk_over_commit = data['disk_over_commit']
-            host = None if data['host'] == 'AUTO_SCHEDULE' else data['host']
-            api.nova.server_live_migrate(request,
-                                         data['instance_id'],
-                                         host,
-                                         block_migration=block_migration,
-                                         disk_over_commit=disk_over_commit)
-            msg = _('The instance is preparing the live migration '
-                    'to a new host.')
+
+            # disk_over_commit = data['disk_over_commit']
+            if data['host'] == "auto_schedule":
+                api.nova.server_live_migrate(request,
+                                             data['instance_id'],
+                                             None,
+                                             block_migration=block_migration)
+                msg = _('The instance is preparing the live migration '
+                        'to a suitable host.')
+            else:
+                api.nova.server_live_migrate(request,
+                                             data['instance_id'],
+                                             data['host'],
+                                             block_migration=block_migration)
+
+                msg = _('The instance is preparing the live migration '
+                        'to host "%s".') % data['host']
             messages.info(request, msg)
             return True
+        except nova_exceptions.ClientException as ce:
+            redirect = reverse('horizon:admin:instances:index')
+            exceptions.handle(request, ce.message, redirect=redirect)
         except Exception:
-            if data['host']:
+            if data['host'] == "auto_schedule":
+                msg = _('Failed to live migrate instance or '
+                        'no suitable host available.')
+            else:
                 msg = _('Failed to live migrate instance to '
                         'host "%s".') % data['host']
-            else:
-                msg = _('Failed to live migrate instance to a new host.')
             redirect = reverse('horizon:admin:instances:index')
             exceptions.handle(request, msg, redirect=redirect)

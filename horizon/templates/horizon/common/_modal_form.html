@@ -41,7 +41,7 @@
       {% block modal-footer %}
         {% if cancel_url %}
         <a href="{% block cancel_url %}{{ cancel_url }}{% endblock %}"
-           class="btn btn-default cancel">
+           class="btn btn-default cancel" data-dismiss="modal">
           {{ cancel_label }}
         </a>
         {% endif %}

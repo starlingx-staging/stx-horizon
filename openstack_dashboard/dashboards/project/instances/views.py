@@ -15,6 +15,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2014-2017 Wind River Systems, Inc.
+#
 
 """
 Views for managing instances.
@@ -52,6 +55,8 @@ from openstack_dashboard.dashboards.project.instances \
 from openstack_dashboard.dashboards.project.instances \
     import tabs as project_tabs
 from openstack_dashboard.dashboards.project.instances \
+    import utils as project_utils
+from openstack_dashboard.dashboards.project.instances \
     import workflows as project_workflows
 from openstack_dashboard.views import get_url_with_pagination
 
@@ -65,11 +70,16 @@ class IndexView(tables.DataTableView):
     def has_more_data(self, table):
         return self._more
 
+    def get_limit_count(self, table):
+        return self._limit
+
     def get_data(self):
         marker = self.request.GET.get(
             project_tables.InstancesTable._meta.pagination_param, None)
-        search_opts = self.get_filters({'marker': marker, 'paginate': True})
-
+        limit = self.request.GET.get(
+            project_tables.InstancesTable._meta.limit_param, None)
+        search_opts = self.get_filters({'marker': marker, 'limit': limit,
+                                        'paginate': True})
         instances = []
         flavors = []
         full_flavors = {}
@@ -83,8 +93,10 @@ class IndexView(tables.DataTableView):
                     self.request,
                     search_opts=search_opts)
                 instances.extend(tmp_instances)
+                self._limit = limit
             except Exception:
                 self._more = False
+                self._limit = None
                 exceptions.handle(self.request,
                                   _('Unable to retrieve instances.'))
                 # In case of exception when calling nova.server_list
@@ -136,6 +148,13 @@ class IndexView(tables.DataTableView):
 
         # Loop through instances to get flavor info.
         for instance in instances:
+            if (hasattr(instance, 'addresses') and
+                    hasattr(instance, "nics")):
+                    instance.addresses = (
+                        project_utils.sort_addresses_by_nic(instance))
+            else:
+                instance.addresses = []
+
             if hasattr(instance, 'image'):
                 # Instance from image returns dict
                 if isinstance(instance.image, dict):
@@ -147,15 +166,28 @@ class IndexView(tables.DataTableView):
                     else:
                         instance.image['name'] = _("-")
 
-            flavor_id = instance.flavor["id"]
-            if flavor_id in full_flavors:
-                instance.full_flavor = full_flavors[flavor_id]
-            else:
-                # If the flavor_id is not in full_flavors list,
-                # put info in the log file.
-                msg = ('Unable to retrieve flavor "%s" for instance "%s".'
-                       % (flavor_id, instance.id))
-                LOG.info(msg)
+                flavor_id = instance.flavor["id"]
+                if flavor_id in full_flavors:
+                    instance.full_flavor = full_flavors[flavor_id]
+                else:
+                    # If the flavor_id is not in full_flavors list,
+                    # put info in the log file.
+                    msg = ('Unable to retrieve flavor "%s" for instance "%s".'
+                           % (flavor_id, instance.id))
+                    LOG.info(msg)
+
+                # WRS: There is a space in the
+                #  attribute name so we use getattr()
+                vcpus_min_cur_max = getattr(instance, "wrs-res:vcpus",
+                                            None)
+
+                # We need to handle the case where
+                # horizon has been updated
+                # but not the nova services.
+                if vcpus_min_cur_max is not None:
+                    instance.vcpus = vcpus_min_cur_max[1]
+                else:
+                    instance.vcpus = instance.full_flavor.vcpus or None
 
         return instances
 
@@ -245,8 +277,24 @@ def rdp(request, instance_id):
         exceptions.handle(request, msg, redirect=redirect)
 
 
+def get_uptime(instance):
+    if getattr(instance, "OS-EXT-STS:power_state", 0) == 1:
+        return getattr(instance, "OS-SRV-USG:launched_at", None)
+    else:
+        return None
+
+
 class SerialConsoleView(generic.TemplateView):
     template_name = 'serial_console.html'
+    success_url = 'horizon:project:instances:index'
+
+    def get_success_url(self):
+        http_referer = self.request.META.get('HTTP_REFERER')
+        if http_referer is not None and "admin" in http_referer:
+            url = self.success_url.replace("project", "admin")
+        else:
+            url = self.success_url
+        return reverse_lazy(url)
 
     def get_context_data(self, **kwargs):
         context = super(SerialConsoleView, self).get_context_data(**kwargs)
@@ -303,9 +351,17 @@ class UpdateView(workflows.WorkflowView):
 class RebuildView(forms.ModalFormView):
     form_class = project_forms.RebuildInstanceForm
     template_name = 'project/instances/rebuild.html'
-    success_url = reverse_lazy('horizon:project:instances:index')
+    success_url = 'horizon:project:instances:index'
     page_title = _("Rebuild Instance")
     submit_label = page_title
+
+    def get_success_url(self):
+        http_referer = self.request.META.get('HTTP_REFERER')
+        if http_referer is not None and "admin" in http_referer:
+            url = self.success_url.replace("project", "admin")
+        else:
+            url = self.success_url
+        return reverse_lazy(url)
 
     def get_context_data(self, **kwargs):
         context = super(RebuildView, self).get_context_data(**kwargs)
@@ -363,6 +419,27 @@ class DetailView(tabs.TabView):
         table = project_tables.InstancesTable(self.request)
         return table.render_row_actions(instance)
 
+    def _get_server_group(self, instance):
+        server_group = None
+        system_metadata = instance.system_metadata
+        if not system_metadata:
+            return server_group
+
+        server_group_id = system_metadata.get('server_group')
+        if not server_group_id:
+            return server_group
+
+        try:
+            server_group = api.nova.server_group_get(self.request,
+                                                     server_group_id)
+        except exceptions.InstanceGroupNotFound:
+            # server group has been deleted while we're still a member
+            LOG.warn(_("Instance has had its server_group deleted "
+                       "while it was still a member"), instance=instance)
+            server_group = None
+
+        return server_group
+
     @memoized.memoized_method
     def get_data(self):
         instance_id = self.kwargs['instance_id']
@@ -388,7 +465,12 @@ class DetailView(tabs.TabView):
                 instance.volumes = api.nova.instance_volumes_list(self.request,
                                                                   instance_id)
                 # Sort by device name
-                instance.volumes.sort(key=lambda vol: vol.device)
+                # WRS: if instance takes an error on launch, volume may not
+                #      have "device" attribute
+                try:
+                    instance.volumes.sort(key=lambda vol: vol.device)
+                except AttributeError:
+                    pass
             except Exception:
                 msg = _('Unable to retrieve volume list for instance '
                         '"%(name)s" (%(id)s).') % {'name': instance.name,
@@ -416,6 +498,14 @@ class DetailView(tabs.TabView):
                 exceptions.handle(self.request, msg, ignore=True)
 
         def _task_update_addresses():
+            instance.uptime = get_uptime(instance)
+            # There is a space in the attribute name and the result is a list
+            # that we want to strip the square brackets from so it looks good.
+            vcpus_min_cur_max = getattr(instance, 'wrs-res:vcpus',
+                                        [" ", " ", " "])
+            instance.vcpus_min_cur_max = '/'.join(map(str, vcpus_min_cur_max))
+            instance.vcpus = vcpus_min_cur_max[1]
+
             try:
                 api.network.servers_update_addresses(self.request, [instance])
             except Exception:
@@ -429,6 +519,11 @@ class DetailView(tabs.TabView):
             e.submit(fn=_task_get_flavor)
             e.submit(fn=_task_get_security_groups)
             e.submit(fn=_task_update_addresses)
+
+        if (hasattr(instance, "addresses") and hasattr(instance, "nics")):
+            instance.addresses = project_utils.sort_addresses_by_nic(instance)
+        else:
+            instance.addresses = []
 
         return instance
 

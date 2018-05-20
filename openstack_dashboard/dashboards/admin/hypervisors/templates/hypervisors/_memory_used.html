@@ -1,0 +1,27 @@
+{% load i18n %}
+<a href="#" id="memory_used_{{ id }}" class="link-popover" rel="popover" tabindex="0" data-trigger="focus" data-content="
+<table class='table table-bordered'>
+  <tr>
+    <th>{% trans 'Node' %}</th>
+    <th>{% trans '4K' %}</th>
+    <th>{% trans '2M' %}</th>
+    <th>{% trans '1G' %}</th>
+  </tr>
+  {% for e in memory_used_info %}
+  <tr>
+    <td> {{ e.node }} </td>
+    <td> {{ e.4K }} </td>
+    <td> {{ e.2M }} </td>
+    <td> {{ e.1G }} </td>
+  </tr>
+  {% endfor %}
+</table>
+" data-original-title="{% blocktrans %}RAM (used): {{ memory_used }}">{{ memory_used }}{% endblocktrans %}</a>
+<script type="text/javascript" charset="utf-8">
+$(function () {
+  var $memory_used = $("#memory_used_{{ id }}");
+  if ( $memory_used.popover ) {
+    $memory_used.popover({html:true});
+  }
+});
+</script>

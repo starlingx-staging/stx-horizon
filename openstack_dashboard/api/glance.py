@@ -246,7 +246,8 @@ def image_get(request, image_id):
 
 @profiler.trace
 def image_list_detailed(request, marker=None, sort_dir='desc',
-                        sort_key='created_at', filters=None, paginate=False,
+                        sort_key='created_at', limit=None,
+                        filters=None, paginate=False,
                         reversed_order=False, **kwargs):
     """Thin layer above glanceclient, for handling pagination issues.
 
@@ -294,13 +295,13 @@ def image_list_detailed(request, marker=None, sort_dir='desc',
         Set this flag to True when it's necessary to get a reversed list of
         images from Glance (used for navigating the images list back in UI).
     """
-    limit = getattr(settings, 'API_RESULT_LIMIT', 1000)
-    page_size = utils.get_page_size(request)
+    result_limit = getattr(settings, 'API_RESULT_LIMIT', 1000)
+    page_size = base.get_request_page_size(request, limit)
 
     if paginate:
         request_size = page_size + 1
     else:
-        request_size = limit
+        request_size = result_limit
 
     _normalize_list_input(filters, **kwargs)
     kwargs = {'filters': filters or {}}
@@ -315,7 +316,7 @@ def image_list_detailed(request, marker=None, sort_dir='desc',
         kwargs['sort_dir'] = 'desc' if sort_dir == 'asc' else 'asc'
 
     images_iter = glanceclient(request).images.list(page_size=request_size,
-                                                    limit=limit,
+                                                    limit=result_limit,
                                                     **kwargs)
     has_prev_data = False
     has_more_data = False
@@ -464,13 +465,17 @@ def image_create(request, **kwargs):
                 try:
                     return glanceclient(request).images.upload(image.id, data)
                 finally:
-                    filename = str(data.file.name)
-                    try:
-                        os.remove(filename)
-                    except OSError as e:
-                        LOG.warning('Failed to remove temporary image file '
-                                    '%(file)s (%(e)s)',
-                                    {'file': filename, 'e': e})
+                    if data:
+                        try:
+                            os.remove(data.file.name)
+                        except Exception as e:
+                            filename = str(data.file)
+                            if hasattr(data.file, 'name'):
+                                filename = data.file.name
+                            msg = (('Failed to remove temporary image file '
+                                    '%(file)s (%(e)s)') %
+                                   dict(file=filename, e=str(e)))
+                            LOG.warning(msg)
             thread.start_new_thread(upload, ())
 
     return Image(image)

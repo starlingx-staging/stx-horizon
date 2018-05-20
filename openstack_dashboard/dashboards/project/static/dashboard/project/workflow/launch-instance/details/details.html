@@ -49,6 +49,12 @@
                validate-number-max="{$ ctrl.maxInstanceCount $}">
         <span class="help-block" ng-show="launchInstanceDetailsForm.count.$invalid">
           {$ launchInstanceDetailsForm.count.$error.validateNumberMax ? ctrl.instanceCountMaxError : ctrl.instanceCountError $}
+          <div ng-if="launchInstanceDetailsForm.count.$error.validateNumberMax">
+            {$ ctrl.instanceCountMaxError $}
+          </div>
+          <div ng-if="!launchInstanceDetailsForm.count.$error.validateNumberMax">
+            {$ ctrl.instanceCountError $}
+          </div>
         </span>
       </div>
     </div>

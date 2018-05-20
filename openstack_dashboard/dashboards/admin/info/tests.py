@@ -29,7 +29,8 @@ class SystemInfoViewTests(test.BaseAdminViewTests):
                         api.nova: ('service_list',),
                         api.neutron: ('agent_list', 'is_extension_supported'),
                         api.cinder: ('service_list',),
-                        api.heat: ('service_list',)})
+                        api.heat: ('service_list',),
+                        api.iservice: ('sm_nodes_list', 'sm_sda_list')})
     def _test_base_index(self):
         api.base.is_service_enabled(IsA(http.HttpRequest), IgnoreArg()) \
                 .MultipleTimes().AndReturn(True)
@@ -49,6 +50,12 @@ class SystemInfoViewTests(test.BaseAdminViewTests):
         heat_services = self.heat_services.list()
         api.heat.service_list(IsA(http.HttpRequest)).\
             AndReturn(heat_services)
+
+        api.iservice.sm_nodes_list(IsA(http.HttpRequest)).\
+            AndReturn({})
+
+        api.iservice.sm_sda_list(IsA(http.HttpRequest)).\
+            AndReturn({})
 
         self.mox.ReplayAll()
 

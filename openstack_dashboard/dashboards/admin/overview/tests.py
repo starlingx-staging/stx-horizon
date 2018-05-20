@@ -89,8 +89,8 @@ class UsageViewTests(test.BaseAdminViewTests):
             api.keystone.tenant_list(IsA(http.HttpRequest)) \
                 .AndReturn([self.tenants.list(), False])
 
+        start_day, now = self._get_start_end_range(overview_days_range)
         if nova_stu_enabled:
-            start_day, now = self._get_start_end_range(overview_days_range)
             api.nova.usage_list(IsA(http.HttpRequest),
                                 datetime.datetime(start_day.year,
                                                   start_day.month,
@@ -113,7 +113,10 @@ class UsageViewTests(test.BaseAdminViewTests):
             .AndReturn(self.cinder_limits['absolute'])
 
         self.mox.ReplayAll()
-        res = self.client.get(reverse('horizon:admin:overview:index'))
+        query = ("?start=%(start)s&end=%(end)s") % (
+            {'start': start_day.strftime("%y-%m-%d"),
+             'end': now.strftime("%y-%m-%d")})
+        res = self.client.get(reverse('horizon:admin:overview:index') + query)
         self.assertTemplateUsed(res, 'admin/overview/usage.html')
         self.assertIsInstance(res.context['usage'], usage.GlobalUsage)
         self.assertEqual(nova_stu_enabled,
@@ -184,8 +187,8 @@ class UsageViewTests(test.BaseAdminViewTests):
         usage_obj = [api.nova.NovaUsage(u) for u in self.usages.list()]
         api.keystone.tenant_list(IsA(http.HttpRequest)) \
                     .AndReturn([self.tenants.list(), False])
+        start_day, now = self._get_start_end_range(overview_days_range)
         if nova_stu_enabled:
-            start_day, now = self._get_start_end_range(overview_days_range)
             api.nova.usage_list(IsA(http.HttpRequest),
                                 datetime.datetime(start_day.year,
                                                   start_day.month,
@@ -209,7 +212,10 @@ class UsageViewTests(test.BaseAdminViewTests):
             .AndReturn(self.cinder_limits['absolute'])
         self.mox.ReplayAll()
 
-        csv_url = reverse('horizon:admin:overview:index') + "?format=csv"
+        query = ("?start=%(start)s&end=%(end)s&format=csv") % (
+            {'start': start_day.strftime("%y-%m-%d"),
+             'end': now.strftime("%y-%m-%d")})
+        csv_url = reverse('horizon:admin:overview:index') + query
         res = self.client.get(csv_url)
         self.assertTemplateUsed(res, 'admin/overview/usage.csv')
         self.assertIsInstance(res.context['usage'], usage.GlobalUsage)

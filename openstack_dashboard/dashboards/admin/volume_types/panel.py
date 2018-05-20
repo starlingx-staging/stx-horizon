@@ -24,3 +24,15 @@ class VolumeTypes(horizon.Panel):
         ('openstack.services.volume', 'openstack.services.volumev2'),
     )
     policy_rules = (("volume", "volume_extension:types_manage"),)
+
+    def allowed(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return super(VolumeTypes, self).allowed(context)
+
+    def nav(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return True

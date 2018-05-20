@@ -27,3 +27,15 @@ class Images(horizon.Panel):
     permissions = ('openstack.services.image',)
     policy_rules = ((("image", "context_is_admin"),
                      ("image", "get_images")),)
+
+    def allowed(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return super(Images, self).allowed(context)
+
+    def nav(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return True

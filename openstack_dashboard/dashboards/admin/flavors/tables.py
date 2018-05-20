@@ -15,6 +15,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2013-2014 Wind River Systems, Inc.
+#
 
 from django.conf import settings
 from django.core.urlresolvers import reverse
@@ -147,7 +150,8 @@ def get_extra_specs(flavor):
 
 
 class FlavorsTable(tables.DataTable):
-    name = tables.WrappingColumn('name', verbose_name=_('Flavor Name'))
+    name = tables.Column('name',
+                         verbose_name=_('Flavor Name'))
     vcpus = tables.Column('vcpus', verbose_name=_('VCPUs'))
     ram = tables.Column(get_size,
                         verbose_name=_('RAM'),

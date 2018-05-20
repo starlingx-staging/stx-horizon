@@ -24,7 +24,10 @@ from six.moves.urllib import request
 from horizon import exceptions
 from horizon.utils import functions as utils
 from horizon.utils.memoized import memoized
+
+from openstack_auth import utils as auth_utils
 from openstack_dashboard.api import base
+
 from openstack_dashboard.contrib.developer.profiler import api as profiler
 
 
@@ -36,14 +39,40 @@ def format_parameters(params):
     return parameters
 
 
+# A portion of this code comes from an unsubmitted code in review
+# bug: https://bugs.launchpad.net/horizon/+bug/1515707
+#
+# Part of: https://review.openstack.org/gitweb?p=openstack/horizon.git
+# commit=a96ab75914b5290f6f21f1b52dd2ea116c42ece3
+def get_new_user_token_from(request):
+    """Generate new token for the given request to use in the context"""
+    tenant_id = request.user.project_id
+
+    endpoint = auth_utils.fix_auth_url_version(request.user.endpoint)
+    session = auth_utils.get_session()
+    # Keystone can be configured to prevent exchanging a scoped token for
+    # another token. Always use the unscoped token for requesting a
+    # scoped token.
+    unscoped_token = request.user.unscoped_token
+    auth = auth_utils.get_token_auth_plugin(auth_url=endpoint,
+                                            token=unscoped_token,
+                                            project_id=tenant_id)
+    auth_ref = auth.get_access(session)
+    return auth_ref.auth_token
+
+
 @memoized
-def heatclient(request, password=None):
+def heatclient(request, password=None, newtoken=False):
     api_version = "1"
     insecure = getattr(settings, 'OPENSTACK_SSL_NO_VERIFY', False)
     cacert = getattr(settings, 'OPENSTACK_SSL_CACERT', None)
     endpoint = base.url_for(request, 'orchestration')
+    if newtoken:
+        token = get_new_user_token_from(request)
+    else:
+        token = request.user.token.id
     kwargs = {
-        'token': request.user.token.id,
+        'token': token,
         'insecure': insecure,
         'ca_file': cacert,
         'username': request.user.username,
@@ -152,7 +181,7 @@ def _get_file_contents(from_data, files):
 
 @profiler.trace
 def stack_delete(request, stack_id):
-    return heatclient(request).stacks.delete(stack_id)
+    return heatclient(request, newtoken=True).stacks.delete(stack_id)
 
 
 @profiler.trace
@@ -167,7 +196,7 @@ def template_get(request, stack_id):
 
 @profiler.trace
 def stack_create(request, password=None, **kwargs):
-    return heatclient(request, password).stacks.create(**kwargs)
+    return heatclient(request, password, newtoken=True).stacks.create(**kwargs)
 
 
 @profiler.trace

@@ -501,6 +501,12 @@ horizon.addInitFunction(horizon.forms.init = function () {
         : $switchable.is(':visible');
       var val = $switchable.val();
 
+      // CGCS: handling of switchable checkboxes if done in host
+      //       inventory detail template
+      if ($switchable.attr('type') == 'checkbox') {
+        return;
+      }
+
       function handle_switched_field(index, input){
         var $input = $(input),
           data = $input.data(slug + "-" + val);
@@ -548,6 +554,12 @@ horizon.addInitFunction(horizon.forms.init = function () {
         slug = $switchable.data('slug'),
         checked = $switchable.prop('checked'),
         hide_on = $switchable.data('hideOnChecked');
+
+      // CGCS: handling of switchable checkboxes if done in host
+      //       inventory detail template
+      if ($switchable.attr('type') == 'checkbox') {
+        return;
+      }
 
       // If checkbox is hidden then do not apply any further logic
       if (!visible) return;

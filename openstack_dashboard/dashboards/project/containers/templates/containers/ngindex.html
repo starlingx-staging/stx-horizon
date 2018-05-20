@@ -19,5 +19,6 @@
 {% endblock page_header %}
 
 {% block main %}
+  {% csrf_token %}
   <ng-include src="'{{ STATIC_URL }}dashboard/project/containers/containers.html'"></ng-include>
 {% endblock %}

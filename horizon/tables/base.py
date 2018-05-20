@@ -30,6 +30,7 @@ from django.template.defaultfilters import slugify
 from django.template.defaultfilters import truncatechars
 from django.template.loader import render_to_string
 from django.utils.html import escape
+from django.utils.html import linebreaks  # noqa
 from django.utils import http
 from django.utils.http import urlencode
 from django.utils.safestring import mark_safe
@@ -42,6 +43,7 @@ from horizon import exceptions
 from horizon.forms import ThemableCheckboxInput
 from horizon import messages
 from horizon.tables.actions import FilterAction
+from horizon.tables.actions import LimitAction  # noqa
 from horizon.tables.actions import LinkAction
 from horizon.utils import html
 
@@ -641,6 +643,11 @@ class Row(html.HTMLElement):
             self.attrs['data-display'] = escape(display_name)
             self.attrs['data-display-key'] = escape(display_name_key)
 
+        # Add the row's confirmation message if available
+        confirm_message = table.get_confirm_message(datum)
+        if confirm_message:
+            self.attrs['data-confirm'] = linebreaks(confirm_message)
+
     def __repr__(self):
         return '<%s: %s>' % (self.__class__.__name__, self.id)
 
@@ -1004,6 +1011,13 @@ class DataTableOptions(object):
         single view this will need to be changed to differentiate between the
         tables. Default: ``"marker"``.
 
+    .. attribute:: limit_param
+
+        The name of the query string parameter which will be used when
+        paginating this table. When using multiple tables in a single
+        view this will need to be changed to differentiate between the
+        tables. Default: ``"limit"``.
+
     .. attribute:: status_columns
 
         A list or tuple of column names which represents the "state"
@@ -1097,6 +1111,7 @@ class DataTableOptions(object):
                                        "no_data_message",
                                        _("No items to display."))
         self.permissions = getattr(options, 'permissions', [])
+        self.limit_param = getattr(options, 'limit_param', 'limit')
 
         # Set self.filter if we have any FilterActions
         filter_actions = [action for action in self.table_actions if
@@ -1109,6 +1124,18 @@ class DataTableOptions(object):
             self._filter_action = filter_actions.pop()
         else:
             self._filter_action = None
+
+        # Set self.limit if we have any LimitActions
+        limit_actions = [action for action in self.table_actions if
+                         issubclass(action, LimitAction)]
+        if len(limit_actions) > 1:
+            raise NotImplementedError("Multiple limit actions is not "
+                                      "currently supported.")
+        self.limit = getattr(options, 'limit', len(limit_actions) > 0)
+        if len(limit_actions) == 1:
+            self._limit_action = limit_actions.pop()
+        else:
+            self._limit_action = None
 
         self.template = getattr(options,
                                 'template',
@@ -1138,6 +1165,7 @@ class DataTableOptions(object):
         # Set runtime table defaults; not configurable.
         self.has_prev_data = False
         self.has_more_data = False
+        self.limit_count = None
 
         # Set mixed data type table attr
         self.mixed_data_type = getattr(options, 'mixed_data_type', False)
@@ -1237,6 +1265,10 @@ class DataTableMetaclass(type):
         if opts._filter_action:
             # Replace our filter action with the instantiated version
             opts._filter_action = actions_dict[opts._filter_action.name]
+
+        if opts._limit_action:
+            # Replace our limit action with the instantiated version
+            opts._limit_action = actions_dict[opts._limit_action.name]
 
         # Create our new class!
         return type.__new__(mcs, name, bases, dt_attrs)
@@ -1395,6 +1427,12 @@ class DataTable(object):
             LOG.exception("Error while checking action permissions.")
             return None
 
+    def _update_action(self, action, request, datum=None):
+        try:
+            action._update(request, datum)
+        except Exception:
+            LOG.exception("Error while updating action.")
+
     def is_browser_table(self):
         if self._meta.browser_table:
             return True
@@ -1506,6 +1544,10 @@ class DataTable(object):
         menu_actions = [self.base_actions[action.name] for
                         action in self._meta.table_actions_menu]
         bound_actions = button_actions + menu_actions
+        for action in bound_actions:
+            self._update_action(action, self.request, None)
+            if action.table.data != self.data:
+                action.table.data = self.data
         return [action for action in bound_actions if
                 self._filter_action(action, self.request)]
 
@@ -1523,7 +1565,7 @@ class DataTable(object):
                                        datum):
                 continue
             # Hook for modifying actions based on data. No-op by default.
-            bound_action.update(self.request, datum)
+            self._update_action(bound_action, self.request, datum)
             # Pre-create the URL for this link with appropriate parameters
             if issubclass(bound_action.__class__, LinkAction):
                 bound_action.bound_url = bound_action.get_link_url(datum)
@@ -1554,6 +1596,9 @@ class DataTable(object):
         if self._meta.filter and (
                 self._filter_action(self._meta._filter_action, self.request)):
             extra_context["filter"] = self._meta._filter_action
+        if self._meta.limit and \
+           self._filter_action(self._meta._limit_action, self.request):
+            extra_context["limit"] = self._meta._limit_action
         for action in bound_actions:
             if action.__class__ in self._meta.table_actions_menu:
                 extra_context['table_actions_menu'].append(action)
@@ -1827,6 +1872,17 @@ class DataTable(object):
         display_key = self.get_object_display_key(datum)
         return getattr(datum, display_key, None)
 
+    def get_confirm_message(self, datum):
+        """Returns a confirmation message.
+
+        Returns a confirmation message for actions
+        performed against this table.
+
+        By default, this returns None which will then use the
+        generic confirmation message.
+        """
+        return None
+
     def has_prev_data(self):
         """Returns a boolean value indicating whether there is previous data.
 
@@ -1865,6 +1921,18 @@ class DataTable(object):
         return http.urlquote_plus(self.get_object_id(self.data[-1])) \
             if self.data else ''
 
+    def get_prev_pagination_param(self):
+        """"Returns the pagination parameter for the table."""
+        return self._meta.prev_pagination_param
+
+    def get_pagination_param(self):
+        """"Returns the pagination parameter for the table."""
+        return self._meta.pagination_param
+
+    def get_limit_param(self):
+        """"Returns the limit parameter for the table."""
+        return self._meta.limit_param
+
     def get_prev_pagination_string(self):
         """Returns the query parameter string to paginate to the prev page."""
         return "=".join([self._meta.prev_pagination_param,
@@ -1873,6 +1941,41 @@ class DataTable(object):
     def get_pagination_string(self):
         """Returns the query parameter string to paginate to the next page."""
         return "=".join([self._meta.pagination_param, self.get_marker()])
+
+    def get_limit_count(self):
+        """Get the current limit count set for the table.
+
+        The method is largely meant for internal use, but if you want to
+        override it to provide custom behavior you can do so at your own risk.
+        """
+        return self._meta.limit_count
+
+    def get_limit_string(self):
+        """Returns the query parameter string to limit this table."""
+        count = self.get_limit_count()
+        if count is None:
+            return ""
+        return "=".join([self.get_limit_param(), count])
+
+    def get_pagination_url(self):
+        """Returns the pagination URL.
+
+        Returns the pagination URL for the table based on the current limit
+        and marker parameters.
+        """
+        table_url = self.get_absolute_url()
+        params = [self.get_pagination_string(), self.get_limit_string()]
+        return "%s?%s" % (table_url, "&".join(filter(None, params)))
+
+    def get_prev_pagination_url(self):
+        """Returns the pagination URL.
+
+        Returns the pagination URL for the table based on the current limit
+        and marker parameters.
+        """
+        table_url = self.get_absolute_url()
+        params = [self.get_prev_pagination_string(), self.get_limit_string()]
+        return "%s?%s" % (table_url, "&".join(filter(None, params)))
 
     def calculate_row_status(self, statuses):
         """Returns a boolean value determining the overall row status.

@@ -1,0 +1,3 @@
+{% if iservice.standby_activity != "active" %}
+<b>{{ iservice.standby_hostname }}</b>: {{ iservice.standby_state|linebreaksbr }}
+{% endif %}

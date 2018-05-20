@@ -22,3 +22,15 @@ class Hypervisors(horizon.Panel):
     slug = 'hypervisors'
     permissions = ('openstack.services.compute',)
     policy_rules = (("compute", "os_compute_api:os-hypervisors"),)
+
+    def allowed(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return super(Hypervisors, self).allowed(context)
+
+    def nav(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return True

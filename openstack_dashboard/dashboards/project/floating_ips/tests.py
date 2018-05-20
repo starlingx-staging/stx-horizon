@@ -326,6 +326,8 @@ class FloatingIpViewTests(test.TestCase):
     def test_correct_quotas_displayed(self):
         api.cinder.is_volume_service_enabled(IsA(http.HttpRequest)) \
             .AndReturn(False)
+        api.base.is_service_enabled(IsA(http.HttpRequest), 'platform') \
+            .MultipleTimes().AndReturn(True)
         api.base.is_service_enabled(IsA(http.HttpRequest), 'network') \
             .MultipleTimes().AndReturn(True)
         api.base.is_service_enabled(IsA(http.HttpRequest), 'compute') \

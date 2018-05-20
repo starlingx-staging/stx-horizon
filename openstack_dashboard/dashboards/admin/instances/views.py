@@ -16,6 +16,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2013-2017 Wind River Systems, Inc.
+#
 
 import futurist
 
@@ -36,6 +39,7 @@ from openstack_dashboard.dashboards.admin.instances \
 from openstack_dashboard.dashboards.admin.instances \
     import tables as project_tables
 from openstack_dashboard.dashboards.admin.instances import tabs
+from openstack_dashboard.dashboards.project.instances import utils
 from openstack_dashboard.dashboards.project.instances import views
 from openstack_dashboard.dashboards.project.instances.workflows \
     import update_instance
@@ -66,6 +70,13 @@ def swap_filter(resources, filters, fake_field, real_field):
     return views.swap_filter(resources, filters, fake_field, real_field)
 
 
+def get_uptime(instance):
+    if getattr(instance, "OS-EXT-STS:power_state", 0) == 1:
+        return getattr(instance, "OS-SRV-USG:launched_at", None)
+    else:
+        return None
+
+
 class AdminUpdateView(views.UpdateView):
     workflow_class = update_instance.AdminUpdateInstance
     success_url = reverse_lazy("horizon:admin:instances:index")
@@ -81,6 +92,9 @@ class AdminIndexView(tables.DataTableView):
     def needs_filter_first(self, table):
         return self._needs_filter_first
 
+    def get_limit_count(self, table):
+        return self._limit
+
     def get_data(self):
         instances = []
         tenants = []
@@ -91,9 +105,10 @@ class AdminIndexView(tables.DataTableView):
 
         marker = self.request.GET.get(
             project_tables.AdminInstancesTable._meta.pagination_param, None)
-        default_search_opts = {'marker': marker,
-                               'paginate': True,
-                               'all_tenants': True}
+        limit = self.request.GET.get(
+            project_tables.AdminInstancesTable._meta.limit_param, None)
+        default_search_opts = {'marker': marker, 'limit': limit,
+                               'all_tenants': True, 'paginate': True}
 
         search_opts = self.get_filters(default_search_opts.copy())
 
@@ -144,9 +159,11 @@ class AdminIndexView(tables.DataTableView):
                 tmp_instances, self._more = api.nova.server_list(
                     self.request,
                     search_opts=search_opts)
+                self._limit = limit
                 instances.extend(tmp_instances)
             except Exception:
                 self._more = False
+                self._limit = None
                 exceptions.handle(self.request,
                                   _('Unable to retrieve instance list.'))
                 # In case of exception when calling nova.server_list
@@ -184,6 +201,12 @@ class AdminIndexView(tables.DataTableView):
 
         # Loop through instances to get flavor and tenant info.
         for inst in instances:
+
+            if hasattr(inst, 'addresses') and hasattr(inst, "nics"):
+                inst.addresses = utils.sort_addresses_by_nic(inst)
+            else:
+                inst.addresses = []
+
             flavor_id = inst.flavor["id"]
             try:
                 if flavor_id in full_flavors:
@@ -193,11 +216,23 @@ class AdminIndexView(tables.DataTableView):
                     # gets it via nova api.
                     inst.full_flavor = api.nova.flavor_get(
                         self.request, flavor_id)
+                    # There is wrs extension in the attribute
+                    # name so we use getattr()
+                    vcpus_min_cur_max = getattr(inst, 'wrs-res:vppus', None)
+
+                    # We need to handle the case where
+                    # horizon has been updated
+                    # but not the nova services.
+                    if vcpus_min_cur_max is not None:
+                        inst.vcpus = vcpus_min_cur_max[1]
+                    else:
+                        inst.vcpus = inst.full_flavor.vcpus
             except Exception:
                 msg = _('Unable to retrieve instance size information.')
                 exceptions.handle(self.request, msg)
             tenant = tenant_dict.get(inst.tenant_id, None)
             inst.tenant_name = getattr(tenant, "name", None)
+            inst.uptime = get_uptime(inst)
         return instances
 
 
@@ -249,6 +284,18 @@ class DetailView(views.DetailView):
     redirect_url = 'horizon:admin:instances:index'
     image_url = 'horizon:admin:images:detail'
     volume_url = 'horizon:admin:volumes:detail'
+
+    def get_context_data(self, **kwargs):
+        # call get_context_data on super (project.instances) to
+        # retrieve the context data and set necessary context attributes.
+        # Overwrite "actions" context attribute with admin.instances table
+        # row actions so that the actions in Admin instances table for the
+        # selected entry are reflected in the detail view.
+        context = super(DetailView, self).get_context_data(**kwargs)
+        instance = self.get_data()
+        table = project_tables.AdminInstancesTable(self.request)
+        context["actions"] = table.render_row_actions(instance)
+        return context
 
     def _get_actions(self, instance):
         table = project_tables.AdminInstancesTable(self.request)

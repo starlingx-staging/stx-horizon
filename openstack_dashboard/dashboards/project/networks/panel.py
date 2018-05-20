@@ -21,3 +21,15 @@ class Networks(horizon.Panel):
     name = _("Networks")
     slug = 'networks'
     permissions = ('openstack.services.network',)
+
+    def allowed(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return super(Networks, self).allowed(context)
+
+    def nav(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return True

@@ -53,7 +53,7 @@ class SetFlavorChoiceAction(workflows.Action):
         flavors = [flavor for flavor in flavors if flavor.id != old_flavor_id]
 
         if flavors:
-            if len(flavors) > 1:
+            if len(flavors) > 0:
                 flavors = instance_utils.sort_flavor_list(request, flavors)
             else:
                 flavor = flavors[0]

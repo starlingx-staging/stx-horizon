@@ -427,6 +427,7 @@
           expect(model.securityGroups.length).toBe(2);
           expect(model.novaLimits.maxTotalInstances).toBe(10);
           expect(model.novaLimits.totalInstancesUsed).toBe(0);
+          expect(model.serverGroups.length).toBe(2);
         });
 
         it('should have networks & no volumes if neutron enabled & cinder disabled', function() {
@@ -857,6 +858,10 @@
 
         it('sets scheduler hints to an empty object', function() {
           expect(model.newInstanceSpec.scheduler_hints).toEqual({});
+        });
+
+        it('sets server groups to an empty array', function() {
+          expect(model.newInstanceSpec.server_group).toEqual([]);
         });
 
         it('sets source type to null', function() {

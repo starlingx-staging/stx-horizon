@@ -43,7 +43,8 @@ CREATE_URL = reverse('horizon:project:images:images:create')
 
 
 class ImagesAndSnapshotsTests(test.TestCase):
-    @test.create_stubs({api.glance: ('image_list_detailed',)})
+    @test.create_stubs({api.glance: ('image_list_detailed',),
+                        api.cinder: ('volume_type_list',)})
     def test_index(self):
         images = self.images.list()
         api.glance.image_list_detailed(IsA(http.HttpRequest),
@@ -51,6 +52,8 @@ class ImagesAndSnapshotsTests(test.TestCase):
                                        sort_dir='asc', sort_key='name',
                                        reversed_order=False) \
             .AndReturn([images, False, False])
+        api.cinder.volume_type_list(
+            IsA(http.HttpRequest)).AndReturn(self.volumes.list())
         self.mox.ReplayAll()
 
         res = self.client.get(INDEX_URL)
@@ -71,32 +74,39 @@ class ImagesAndSnapshotsTests(test.TestCase):
         row_actions = images_table.get_row_actions(images[2])
         self.assertEqual(len(row_actions), 4)
 
-    @test.create_stubs({api.glance: ('image_list_detailed',)})
+    @test.create_stubs({api.glance: ('image_list_detailed',),
+                        api.cinder: ('volume_type_list',)})
     def test_index_no_images(self):
         api.glance.image_list_detailed(IsA(http.HttpRequest),
                                        marker=None, paginate=True,
                                        sort_dir='asc', sort_key='name',
                                        reversed_order=False) \
             .AndReturn([(), False, False])
+        api.cinder.volume_type_list(
+            IsA(http.HttpRequest)).AndReturn(self.volumes.list())
         self.mox.ReplayAll()
 
         res = self.client.get(INDEX_URL)
         self.assertTemplateUsed(res, INDEX_TEMPLATE)
         self.assertContains(res, 'No items to display')
 
-    @test.create_stubs({api.glance: ('image_list_detailed',)})
+    @test.create_stubs({api.glance: ('image_list_detailed',),
+                        api.cinder: ('volume_type_list',)})
     def test_index_error(self):
         api.glance.image_list_detailed(IsA(http.HttpRequest),
                                        marker=None, paginate=True,
                                        sort_dir='asc', sort_key='name',
                                        reversed_order=False) \
             .AndRaise(self.exceptions.glance)
+        api.cinder.volume_type_list(
+            IsA(http.HttpRequest)).AndReturn(self.volumes.list())
         self.mox.ReplayAll()
 
         res = self.client.get(INDEX_URL)
         self.assertTemplateUsed(res, INDEX_TEMPLATE)
 
-    @test.create_stubs({api.glance: ('image_list_detailed',)})
+    @test.create_stubs({api.glance: ('image_list_detailed',),
+                        api.cinder: ('volume_type_list',)})
     def test_snapshot_actions(self):
         snapshots = self.snapshots.list()
         api.glance.image_list_detailed(IsA(http.HttpRequest),
@@ -104,6 +114,8 @@ class ImagesAndSnapshotsTests(test.TestCase):
                                        sort_dir='asc', sort_key='name',
                                        reversed_order=False) \
             .AndReturn([snapshots, False, False])
+        api.cinder.volume_type_list(
+            IsA(http.HttpRequest)).AndReturn(self.volumes.list())
         self.mox.ReplayAll()
 
         res = self.client.get(INDEX_URL)

@@ -9,7 +9,11 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+#
+# Copyright (c) 2016-2017 Wind River Systems, Inc.
+#
 
+import collections
 import json
 import logging
 
@@ -254,6 +258,7 @@ class PreviewTemplateForm(TemplateForm):
 class CreateStackForm(forms.SelfHandlingForm):
 
     param_prefix = '__param_'
+    no_autocomplete = True
 
     class Meta(object):
         name = _('Create Stack')
@@ -348,6 +353,13 @@ class CreateStackForm(forms.SelfHandlingForm):
 
             elif param_type == 'Json' and 'Default' in param:
                 field_args['initial'] = json.dumps(param['Default'])
+                field = forms.CharField(**field_args)
+
+            elif param_type == 'CommaDelimitedList' and 'Default' in param:
+                # We cannot blindly convert a list to a string
+                clist = param['Default']
+                if isinstance(clist, collections.Sequence):
+                    field_args['initial'] = ','.join(str(e) for e in clist)
                 field = forms.CharField(**field_args)
 
             elif param_type in ('CommaDelimitedList', 'String', 'Json'):

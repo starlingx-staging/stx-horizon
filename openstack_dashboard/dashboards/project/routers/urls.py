@@ -11,11 +11,16 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2013-2015 Wind River Systems, Inc.
+#
 
 from django.conf.urls import url
 
 from openstack_dashboard.dashboards.project.routers.extensions.extraroutes\
     import views as er_views
+from openstack_dashboard.dashboards.project.routers.portforwardings \
+    import views as portforwarding_views
 from openstack_dashboard.dashboards.project.routers.ports \
     import views as port_views
 from openstack_dashboard.dashboards.project.routers import views
@@ -30,7 +35,7 @@ urlpatterns = [
     url(ROUTER_URL % '$',
         views.DetailView.as_view(),
         name='detail'),
-    url(ROUTER_URL % 'update',
+    url(ROUTER_URL % 'update$',
         views.UpdateView.as_view(),
         name='update'),
     url(ROUTER_URL % 'addinterface',
@@ -42,4 +47,11 @@ urlpatterns = [
     url(ROUTER_URL % 'setgateway',
         port_views.SetGatewayView.as_view(),
         name='setgateway'),
+    url(ROUTER_URL % 'portforwardings/create',
+        portforwarding_views.AddPortForwardingRuleView.as_view(),
+        name='addportforwardingrule'),
+    url(r'^(?P<router_id>[^/]+)/portforwardings/'
+        r'(?P<portforwarding_id>[^/]+)/update$',
+        portforwarding_views.UpdatePortForwardingRuleView.as_view(),
+        name='updateportforwardingrule'),
 ]

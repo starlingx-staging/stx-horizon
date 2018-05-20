@@ -87,7 +87,8 @@ class Volume(BaseCinderAPIResourceWrapper):
               'snapshot_id', 'source_volid', 'attachments', 'tenant_name',
               'consistencygroup_id', 'os-vol-host-attr:host',
               'os-vol-tenant-attr:tenant_id', 'metadata',
-              'volume_image_metadata', 'encrypted', 'transfer']
+              'volume_image_metadata', 'encrypted', 'transfer',
+              'error']
 
     @property
     def is_bootable(self):
@@ -97,7 +98,7 @@ class Volume(BaseCinderAPIResourceWrapper):
 class VolumeSnapshot(BaseCinderAPIResourceWrapper):
 
     _attrs = ['id', 'name', 'description', 'size', 'status',
-              'created_at', 'volume_id',
+              'created_at', 'volume_id', 'error',
               'os-extended-snapshot-attributes:project_id',
               'metadata']
 
@@ -331,8 +332,13 @@ def volume_get(request, volume_id):
 
     for attachment in volume_data.attachments:
         if "server_id" in attachment:
-            instance = nova.server_get(request, attachment['server_id'])
-            attachment['instance_name'] = instance.name
+            try:
+                instance = nova.server_get(request, attachment['server_id'])
+                attachment['instance_name'] = instance.name
+            except Exception:
+                LOG.error("Invalid server:(%s) for volume:(%s)",
+                          (attachment['server_id'], volume_id))
+                attachment['instance_name'] = _("Unknown instance")
         else:
             # Nova volume can occasionally send back error'd attachments
             # the lack a server_id property; to work around that we'll

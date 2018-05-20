@@ -278,6 +278,16 @@
         ]
       },
       {
+        "func": "getServerGroups",
+        "method": "get",
+        "path": "/api/nova/server_groups/",
+        "data": {
+          "params": {}
+        },
+        "error": "Unable to retrieve the server groups.",
+        "testInput": []
+      },
+      {
         "func": "getFlavors",
         "method": "get",
         "path": "/api/nova/flavors/",

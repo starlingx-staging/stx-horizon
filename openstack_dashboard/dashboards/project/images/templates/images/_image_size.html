@@ -1,0 +1,9 @@
+{% load i18n %}
+<ul>
+{% if cache_size %}
+    <li>{{image.size | filesizeformat}} {% trans " &" %}</li>
+    <li>{{cache_size | filesizeformat}} {% trans " cached" %}</li>
+{% else %}
+    <li>{{image.size | filesizeformat}}</li>
+{% endif %}
+</ul>

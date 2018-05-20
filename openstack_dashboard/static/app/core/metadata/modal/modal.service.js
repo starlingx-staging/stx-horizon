@@ -24,17 +24,22 @@
     '$uibModal',
     'horizon.app.core.basePath',
     'horizon.app.core.metadata.service',
-    'horizon.app.core.metadata.modal.constants'
+    'horizon.app.core.metadata.modal.constants',
+    '$http'
   ];
 
   /**
    * @ngdoc service
    * @name modalService
    */
-  function modalService($uibModal, path, metadataService, modalConstants) {
+  function modalService($uibModal, path, metadataService, modalConstants, $http) {
     var service = {
       open: open
     };
+
+    // WRS: set X-CSRFToken in case CSRF_COOKIE_HTTPONLY is enabled
+    var csrf_token = $('input[name=csrfmiddlewaretoken]').val();
+    $http.defaults.headers.common['X-CSRFToken'] = csrf_token;
 
     return service;
 

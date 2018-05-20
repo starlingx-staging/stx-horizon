@@ -39,7 +39,8 @@ IMAGES_INDEX_URL = reverse('horizon:project:images:index')
 
 
 class CreateImageFormTests(test.ResetImageAPIVersionMixin, test.TestCase):
-    @test.create_stubs({api.glance: ('image_list_detailed',)})
+    @test.create_stubs({api.glance: ('image_list_detailed',),
+                        api.base: ('is_service_enabled',)})
     def test_no_location_or_file(self):
         filters = {'disk_format': 'aki'}
         api.glance.image_list_detailed(
@@ -49,6 +50,8 @@ class CreateImageFormTests(test.ResetImageAPIVersionMixin, test.TestCase):
         api.glance.image_list_detailed(
             IsA({}), filters=filters).AndReturn(
             [self.images.list(), False, False])
+        api.base.is_service_enabled(IsA(dict()), 'platform') \
+            .AndReturn(True)
         self.mox.ReplayAll()
         post = {
             'name': u'Ubuntu 11.10',
@@ -65,7 +68,8 @@ class CreateImageFormTests(test.ResetImageAPIVersionMixin, test.TestCase):
 
     @override_settings(HORIZON_IMAGES_ALLOW_UPLOAD=False)
     @override_settings(IMAGES_ALLOW_LOCATION=True)
-    @test.create_stubs({api.glance: ('image_list_detailed',)})
+    @test.create_stubs({api.glance: ('image_list_detailed',),
+                        api.base: ('is_service_enabled',)})
     def test_image_upload_disabled(self):
         filters = {'disk_format': 'aki'}
         api.glance.image_list_detailed(
@@ -75,6 +79,8 @@ class CreateImageFormTests(test.ResetImageAPIVersionMixin, test.TestCase):
         api.glance.image_list_detailed(
             IsA({}), filters=filters).AndReturn(
             [self.images.list(), False, False])
+        api.base.is_service_enabled(IsA(dict()), 'platform') \
+            .AndReturn(True)
         self.mox.ReplayAll()
         form = forms.CreateImageForm({})
         self.assertEqual(
@@ -131,7 +137,11 @@ class CreateImageFormTests(test.ResetImageAPIVersionMixin, test.TestCase):
 
 
 class UpdateImageFormTests(test.ResetImageAPIVersionMixin, test.TestCase):
+    @test.create_stubs({api.base: ('is_TiS_region',)})
     def test_is_format_field_editable(self):
+        api.base.is_TiS_region({}).AndReturn(False)
+        self.mox.ReplayAll()
+
         form = forms.UpdateImageForm({})
         disk_format = form.fields['disk_format']
         self.assertFalse(disk_format.widget.attrs.get('readonly', False))
@@ -255,8 +265,8 @@ class ImageViewTests(test.ResetImageAPIVersionMixin, test.TestCase):
         data = {
             'source_type': u'url',
             'image_url': u'http://cloud-images.ubuntu.com/releases/'
-                         u'oneiric/release/ubuntu-11.10-server-cloudimg'
-                         u'-amd64-disk1.img',
+                         u'14.04/release/'
+                         u'ubuntu-14.04-server-cloudimg-amd64-disk1.img',
             'is_copying': True}
 
         api_data = {'copy_from': data['image_url']}
@@ -406,6 +416,8 @@ class ImageViewTests(test.ResetImageAPIVersionMixin, test.TestCase):
     def _test_image_detail_get(self, image):
         api.glance.image_get(IsA(http.HttpRequest), str(image.id)) \
             .AndReturn(image)
+        api.cinder.volume_type_list(
+            IsA(http.HttpRequest)).AndReturn(self.volumes.list())
         self.mox.ReplayAll()
 
         res = self.client.get(reverse('horizon:project:images:images:detail',
@@ -423,7 +435,8 @@ class ImageViewTests(test.ResetImageAPIVersionMixin, test.TestCase):
 
         self._test_image_detail_get(image)
 
-    @test.create_stubs({api.glance: ('image_get',)})
+    @test.create_stubs({api.glance: ('image_get',),
+                        api.cinder: ('volume_type_list',)})
     def test_image_detail_get_v2(self):
         image = self.imagesV2.first()
 
@@ -460,7 +473,8 @@ class ImageViewTests(test.ResetImageAPIVersionMixin, test.TestCase):
 
         self._test_image_detail_custom_props_get(image)
 
-    @test.create_stubs({api.glance: ('image_get',)})
+    @test.create_stubs({api.glance: ('image_get',),
+                        api.cinder: ('volume_type_list',)})
     def test_image_detail_custom_props_get_v2(self):
         image = self.imagesV2.list()[2]
 
@@ -469,6 +483,8 @@ class ImageViewTests(test.ResetImageAPIVersionMixin, test.TestCase):
     def _test_protected_image_detail_get(self, image):
         api.glance.image_get(IsA(http.HttpRequest), str(image.id)) \
             .AndReturn(image)
+        api.cinder.volume_type_list(
+            IsA(http.HttpRequest)).AndReturn(self.volumes.list())
         self.mox.ReplayAll()
 
         res = self.client.get(
@@ -485,7 +501,8 @@ class ImageViewTests(test.ResetImageAPIVersionMixin, test.TestCase):
 
         self._test_protected_image_detail_get(image)
 
-    @test.create_stubs({api.glance: ('image_get',)})
+    @test.create_stubs({api.glance: ('image_get',),
+                        api.cinder: ('volume_type_list',)})
     def test_protected_image_detail_get_v2(self):
         image = self.imagesV2.list()[1]
 

@@ -56,6 +56,12 @@ class CreateView(DefaultSubnetWorkflowMixin, workflows.WorkflowView):
                 "network_name": network.name_or_id,
                 "dns_nameservers": self.get_default_dns_servers()}
 
+    def get_context_data(self, **kwargs):
+        context = super(CreateView, self).get_context_data(**kwargs)
+        network = self.get_object()
+        context['network_name'] = network.name_or_id
+        return context
+
 
 class UpdateView(workflows.WorkflowView):
     workflow_class = project_workflows.UpdateSubnet

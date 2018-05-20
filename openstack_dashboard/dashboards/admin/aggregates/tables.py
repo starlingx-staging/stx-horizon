@@ -10,10 +10,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from django.core.urlresolvers import reverse
 from django.template import defaultfilters as filters
 from django.utils.translation import ugettext_lazy as _
 from django.utils.translation import ungettext_lazy
 
+from horizon import exceptions
 from horizon import tables
 
 from openstack_dashboard import api
@@ -38,7 +40,11 @@ class DeleteAggregateAction(tables.DeleteAction):
         )
 
     def delete(self, request, obj_id):
-        api.nova.aggregate_delete(request, obj_id)
+        try:
+            api.nova.aggregate_delete(request, obj_id)
+        except Exception as e:
+            redirect_url = reverse("horizon:admin:aggregates:index")
+            exceptions.handle(request, e, redirect=redirect_url)
 
 
 class CreateAggregateAction(tables.LinkAction):
@@ -121,10 +127,13 @@ def get_zone_hosts(zone):
     host_details = []
     if hosts is None:
         return []
-    for name, services in hosts.items():
-        up = all(s['active'] and s['available'] for s in services.values())
-        up = _("Services Up") if up else _("Services Down")
-        host_details.append("%(host)s (%(up)s)" % {'host': name, 'up': up})
+    # zone hosts may be None in a single controller environment
+    if hosts:
+        for name, services in hosts.items():
+            up = all([s['active'] and s['available']
+                      for s in services.values()])
+            up = _("Services Up") if up else _("Services Down")
+            host_details.append("%(host)s (%(up)s)" % {'host': name, 'up': up})
     return host_details
 
 

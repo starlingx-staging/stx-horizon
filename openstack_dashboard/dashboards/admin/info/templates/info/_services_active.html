@@ -1,0 +1,3 @@
+{% if iservice.active_activity == "active" %}
+<b>{{ iservice.active_hostname }}</b>: {{ iservice.active_state|linebreaksbr }}
+{% endif %}

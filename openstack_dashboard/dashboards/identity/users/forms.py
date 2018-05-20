@@ -15,6 +15,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2013-2017 Wind River Systems, Inc.
+#
 
 import collections
 import logging
@@ -79,7 +82,7 @@ class BaseUserForm(forms.SelfHandlingForm):
                     request, user=user_id)
 
             for project in projects:
-                if project.enabled:
+                if project.enabled and project.name != 'services':
                     project_choices.append((project.id, project.name))
             if not project_choices:
                 project_choices.insert(0, ('', _("No available projects")))
@@ -316,9 +319,16 @@ class ChangePasswordForm(PasswordMixin, forms.SelfHandlingForm):
             response = api.keystone.user_update_password(
                 request, user_id, password, admin=False)
             if user_id == request.user.id:
+                if data['name'] == "admin":
+                    msg = _('Warning: %s password changed. Please wait 5 minu'
+                            'tes then log in and lock/unlock the controllers '
+                            'for the password change to come into effect') \
+                        % request.user
+                else:
+                    msg = _('Password changed. Please log in to continue.')
+
                 return utils.logout_with_message(
-                    request,
-                    _('Password changed. Please log in to continue.'),
+                    request, msg,
                     redirect=False)
             messages.success(request,
                              _('User password has been updated successfully.'))

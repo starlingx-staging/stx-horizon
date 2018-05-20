@@ -115,7 +115,6 @@ class EndpointsTable(tables.DataTable):
         multi_select = False
         table_actions = (ViewCredentials, RecreateCredentials)
         table_actions_menu = (DownloadCloudsYaml,
-                              DownloadOpenRCv2,
                               DownloadOpenRC,
                               DownloadEC2)
         table_actions_menu_label = _('Download OpenStack RC File')

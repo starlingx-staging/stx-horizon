@@ -2,5 +2,6 @@
   <div class="alert alert-{$ ::toast.type $}">
     <a class="close" ng-click="toast.cancel($index)"><span class="fa fa-times"></span></a>
     <div><strong>{$ toast.typeMsg $}: </strong>{$ toast.msg $}</div>
+    <div ng-if="toast.msg2">{$ toast.msg2 $}</div>
   </div>
 </div>

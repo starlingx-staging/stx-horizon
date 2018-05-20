@@ -33,7 +33,7 @@
   ContainersModel.$inject = [
     'horizon.app.core.openstack-service-api.swift',
     'horizon.framework.util.http.service',
-    '$q'
+    '$q',
   ];
 
   /**

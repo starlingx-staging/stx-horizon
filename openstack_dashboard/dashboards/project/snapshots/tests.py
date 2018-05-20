@@ -36,6 +36,7 @@ INDEX_URL = reverse('horizon:project:snapshots:index')
 
 class VolumeSnapshotsViewTests(test.TestCase):
     @test.create_stubs({api.cinder: ('tenant_absolute_limits',
+                                     'is_volume_service_enabled',
                                      'volume_snapshot_list_paged',
                                      'volume_list',),
                         api.base: ('is_service_enabled',)})
@@ -45,6 +46,8 @@ class VolumeSnapshotsViewTests(test.TestCase):
             .AndReturn(True)
         api.base.is_service_enabled(IsA(http.HttpRequest), 'volume') \
             .AndReturn(True)
+        api.cinder.is_volume_service_enabled(IsA(http.HttpRequest)) \
+            .MultipleTimes().AndReturn(True)
         api.cinder.volume_snapshot_list_paged(
             IsA(http.HttpRequest), marker=marker, sort_dir=sort_dir,
             paginate=True).AndReturn([snapshots, has_more, has_prev])

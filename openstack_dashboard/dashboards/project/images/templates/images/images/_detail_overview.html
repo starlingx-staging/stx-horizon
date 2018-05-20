@@ -64,5 +64,9 @@
       <dt title="{{ prop }}">{{ title }}</dt>
       <dd>{{ val }}</dd>
     {% endfor %}
+    {% if image.properties.hw_vif_model %}
+      <dt>{% trans "VIF Model" %}</dt>
+      <dd>{{ image.properties.hw_vif_model }}</dd>
+    {% endif %}    
   </dl>
 </div>

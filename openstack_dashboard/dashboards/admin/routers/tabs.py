@@ -11,9 +11,14 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2013-2015 Wind River Systems, Inc.
+#
 
 from openstack_dashboard.dashboards.admin.routers.extensions.extraroutes\
     import tables as ertbl
+from openstack_dashboard.dashboards.admin.routers.portforwardings\
+    import tables as pftbl
 from openstack_dashboard.dashboards.admin.routers.ports import tables as ptbl
 from openstack_dashboard.dashboards.project.routers.extensions.extraroutes\
     import tabs as er_tabs
@@ -32,6 +37,11 @@ class InterfacesTab(r_tabs.InterfacesTab):
     table_classes = (ptbl.PortsTable,)
 
 
+class PortForwardingTab(r_tabs.PortForwardingTab):
+    table_classes = (pftbl.PortForwardingRulesTable,)
+
+
 class RouterDetailTabs(r_tabs.RouterDetailTabs):
-    tabs = (OverviewTab, InterfacesTab, ExtraRoutesTab)
+    tabs = (OverviewTab, InterfacesTab, PortForwardingTab,
+            ExtraRoutesTab)
     sticky = True

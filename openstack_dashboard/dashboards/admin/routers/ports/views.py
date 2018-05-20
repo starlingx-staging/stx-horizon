@@ -15,7 +15,18 @@
 from horizon import tabs
 
 from openstack_dashboard.dashboards.admin.routers.ports \
+    import forms as admin_forms
+from openstack_dashboard.dashboards.admin.routers.ports \
     import tabs as project_tabs
+from openstack_dashboard.dashboards.project.routers.ports \
+    import views as project_views
+
+
+class SetGatewayView(project_views.SetGatewayView):
+    form_class = admin_forms.SetGatewayForm
+    template_name = 'admin/routers/ports/setgateway.html'
+    success_url = 'horizon:admin:routers:index'
+    failure_url = 'horizon:admin:routers:index'
 
 
 class DetailView(tabs.TabView):

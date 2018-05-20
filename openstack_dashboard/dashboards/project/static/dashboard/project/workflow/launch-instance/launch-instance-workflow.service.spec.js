@@ -48,6 +48,7 @@
         'launchInstanceDetailsForm',
         'launchInstanceSourceForm',
         'launchInstanceFlavorForm',
+        'launchInstanceServerGroupForm',
         'launchInstanceNetworkForm',
         'launchInstanceNetworkPortForm',
         'launchInstanceAccessAndSecurityForm',
@@ -55,7 +56,8 @@
         'launchInstanceConfigurationForm',
         'launchInstanceServerGroupsForm',
         'launchInstanceSchedulerHintsForm',
-        'launchInstanceMetadataForm'
+        'launchInstanceMetadataForm',
+        'launchInstanceAdvanceForm'
       ];
 
       forms.forEach(function(expectedForm, idx) {

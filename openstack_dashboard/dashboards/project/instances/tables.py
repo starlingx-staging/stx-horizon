@@ -11,6 +11,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2014-2017 Wind River Systems, Inc.
+#
 
 
 import logging
@@ -36,9 +39,11 @@ from horizon import tables
 from horizon.templatetags import sizeformat
 from horizon.utils import filters
 
+from novaclient.exceptions import ClientException
 from openstack_dashboard import api
 from openstack_dashboard.dashboards.project.floating_ips import workflows
 from openstack_dashboard.dashboards.project.instances import tabs
+from openstack_dashboard.dashboards.project.instances import utils
 from openstack_dashboard.dashboards.project.instances.workflows \
     import resize_instance
 from openstack_dashboard.dashboards.project.instances.workflows \
@@ -345,6 +350,8 @@ class ToggleShelve(tables.BatchAction):
         )
 
     def allowed(self, request, instance=None):
+        if api.base.is_TiS_region(request):
+            return False
         if not api.nova.extension_supported('Shelve', request):
             return False
         if not instance:
@@ -425,7 +432,7 @@ class LaunchLink(tables.LinkAction):
 class LaunchLinkNG(LaunchLink):
     name = "launch-ng"
     url = "horizon:project:instances:index"
-    ajax = False
+    ajax = True
     classes = ("btn-launch", )
 
     def get_default_attrs(self):
@@ -565,7 +572,14 @@ class ConfirmResize(policy.PolicyTargetMixin, tables.Action):
         return instance.status == 'VERIFY_RESIZE'
 
     def single(self, table, request, instance):
-        api.nova.server_confirm_resize(request, instance)
+        try:
+            api.nova.server_confirm_resize(request, instance)
+            messages.success(request, "Confirmation has been sent to instance")
+        except ClientException:
+            # Ignore users' multiple requests before refresh
+            # (instance could be in it's next state but not shown here yet)
+            LOG.info("Ignoring nova exception on ConfirmResize")
+            pass
 
 
 class RevertResize(policy.PolicyTargetMixin, tables.Action):
@@ -578,7 +592,15 @@ class RevertResize(policy.PolicyTargetMixin, tables.Action):
         return instance.status == 'VERIFY_RESIZE'
 
     def single(self, table, request, instance):
-        api.nova.server_revert_resize(request, instance)
+        try:
+            api.nova.server_revert_resize(request, instance)
+            messages.success(request, "Revert request has been sent to "
+                                      "instance")
+        except ClientException:
+            # Ignore users' multiple requests before refresh
+            # (instance could be in it's next state but not shown here yet)
+            LOG.info("Ignoring nova exception on RevertResize")
+            pass
 
 
 class RebuildInstance(policy.PolicyTargetMixin, tables.LinkAction):
@@ -591,7 +613,7 @@ class RebuildInstance(policy.PolicyTargetMixin, tables.LinkAction):
 
     def allowed(self, request, instance):
         return ((instance.status in ACTIVE_STATES
-                 or instance.status == 'SHUTOFF')
+                 or instance.status in ('SHUTOFF', 'ERROR'))
                 and not is_deleting(instance))
 
     def get_link_url(self, datum):
@@ -639,10 +661,18 @@ class AssociateIP(policy.PolicyTargetMixin, tables.LinkAction):
             return False
         if instance.status == "ERROR":
             return False
-        for addresses in instance.addresses.values():
-            for address in addresses:
-                if address.get('OS-EXT-IPS:type') == "floating":
-                    return False
+
+        ins_addresses = []
+        if instance.addresses:
+            if not isinstance(instance.addresses, list):
+                ins_addresses.append(instance.addresses)
+            else:
+                ins_addresses = instance.addresses
+            for addresses in ins_addresses:
+                for address in addresses.values():
+                    for addr in address:
+                        if addr.get('OS-EXT-IPS:type') == "floating":
+                            return False
         return not is_deleting(instance)
 
     def get_link_url(self, datum):
@@ -673,10 +703,18 @@ class SimpleDisassociateIP(policy.PolicyTargetMixin, tables.Action):
             return False
         if not conf.HORIZON_CONFIG["simple_ip_management"]:
             return False
-        for addresses in instance.addresses.values():
-            for address in addresses:
-                if address.get('OS-EXT-IPS:type') == "floating":
-                    return not is_deleting(instance)
+
+        ins_addresses = []
+        if instance.addresses:
+            if not isinstance(instance.addresses, list):
+                ins_addresses.append(instance.addresses)
+            else:
+                ins_addresses = instance.addresses
+            for addresses in ins_addresses:
+                for address in addresses.values():
+                    for addr in address:
+                        if addr.get('OS-EXT-IPS:type') == "floating":
+                            return not is_deleting(instance)
         return False
 
     def single(self, table, request, instance_id):
@@ -733,14 +771,13 @@ class UpdateMetadata(policy.PolicyTargetMixin, tables.LinkAction):
 def instance_fault_to_friendly_message(instance):
     fault = getattr(instance, 'fault', {})
     message = fault.get('message', _("Unknown"))
-    default_message = _("Please try again later [Error: %s].") % message
     fault_map = {
         'NoValidHost': _("There is not enough capacity for this "
                          "flavor in the selected availability zone. "
                          "Try again later or select a different availability "
                          "zone.")
     }
-    return fault_map.get(message, default_message)
+    return fault_map.get(message, message)
 
 
 def get_instance_error(instance):
@@ -750,6 +787,11 @@ def get_instance_error(instance):
     preamble = _('Failed to perform requested operation on instance "%s", the '
                  'instance has an error status') % instance.name or instance.id
     message = string_concat(preamble, ': ', message)
+    # This is a measured value, not sure where the truncation is happening
+    max_len = 349
+    truncation_note = "... Error message truncated."
+    if len(message) >= max_len:
+        message = message[:max_len - len(truncation_note)] + truncation_note
     return message
 
 
@@ -768,6 +810,10 @@ class UpdateRow(tables.Row):
                               ignore=True)
         try:
             api.network.servers_update_addresses(request, [instance])
+            if (hasattr(instance, 'addresses') and hasattr(instance, "nics")):
+                instance.addresses = utils.sort_addresses_by_nic(instance)
+            else:
+                instance.addresses = []
         except Exception:
             exceptions.handle(request,
                               _('Unable to retrieve Network information '
@@ -776,6 +822,15 @@ class UpdateRow(tables.Row):
         error = get_instance_error(instance)
         if error:
             messages.error(request, error)
+        # There is a space in the attribute name so we use getattr()
+        vcpus_min_cur_max = getattr(instance, 'vcpus (min/cur/max)', None)
+
+        # We need to handle the case where horizon has been updated
+        # but not the nova services.
+        if vcpus_min_cur_max is not None:
+            instance.vcpus = vcpus_min_cur_max[1]
+        elif hasattr(instance, "full_flavor"):
+            instance.vcpus = instance.full_flavor.vcpus
         return instance
 
 
@@ -948,6 +1003,8 @@ class AttachInterface(policy.PolicyTargetMixin, tables.LinkAction):
     policy_rules = (("compute", "os_compute_api:os-attach-interfaces"),)
 
     def allowed(self, request, instance):
+        if api.base.is_TiS_region(request):
+            return False
         return ((instance.status in ACTIVE_STATES
                  or instance.status == 'SHUTOFF')
                 and not is_deleting(instance)
@@ -967,6 +1024,8 @@ class DetachInterface(policy.PolicyTargetMixin, tables.LinkAction):
     url = "horizon:project:instances:detach_interface"
 
     def allowed(self, request, instance):
+        if api.base.is_TiS_region(request):
+            return False
         if not api.base.is_service_enabled(request, 'network'):
             return False
         if is_deleting(instance):
@@ -987,23 +1046,7 @@ class DetachInterface(policy.PolicyTargetMixin, tables.LinkAction):
 
 def get_ips(instance):
     template_name = 'project/instances/_instance_ips.html'
-    ip_groups = {}
-
-    for ip_group, addresses in instance.addresses.items():
-        ip_groups[ip_group] = {}
-        ip_groups[ip_group]["floating"] = []
-        ip_groups[ip_group]["non_floating"] = []
-
-        for address in addresses:
-            if ('OS-EXT-IPS:type' in address and
-               address['OS-EXT-IPS:type'] == "floating"):
-                ip_groups[ip_group]["floating"].append(address)
-            else:
-                ip_groups[ip_group]["non_floating"].append(address)
-
-    context = {
-        "ip_groups": ip_groups,
-    }
+    context = {"instance": instance}
     return template.loader.render_to_string(template_name, context)
 
 
@@ -1215,6 +1258,10 @@ def get_server_detail_link(obj, request):
                                    obj.id)
 
 
+class InstancesLimitAction(tables.LimitAction):
+    verbose_name = _("Instances")
+
+
 class InstancesTable(tables.DataTable):
     TASK_STATUS_CHOICES = (
         (None, True),
@@ -1281,7 +1328,8 @@ class InstancesTable(tables.DataTable):
         if getattr(settings, 'LAUNCH_INSTANCE_NG_ENABLED', True):
             launch_actions = (LaunchLinkNG,) + launch_actions
         table_actions = launch_actions + (DeleteInstance,
-                                          InstancesFilterAction)
+                                          InstancesFilterAction,
+                                          InstancesLimitAction)
         row_actions = (StartInstance, ConfirmResize, RevertResize,
                        CreateSnapshot, AssociateIP,
                        SimpleDisassociateIP, AttachInterface,

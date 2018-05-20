@@ -42,7 +42,7 @@ class DetailView(tables.DataTableView):
     table_class = project_tables.RulesTable
     template_name = 'project/security_groups/detail.html'
     page_title = _("Manage Security Group Rules: "
-                   "{{ security_group.name }} ({{ security_group.id }})")
+                   "{{ security_group.name }}")
 
     @memoized.memoized_method
     def _get_data(self):

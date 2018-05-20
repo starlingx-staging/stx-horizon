@@ -12,13 +12,20 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2013-2017 Wind River Systems, Inc.
+#
 
 from django.core import urlresolvers
+from django.core.urlresolvers import reverse  # noqa
+from django.template.defaultfilters import timesince  # noqa
 from django.template.defaultfilters import title
 from django.utils.translation import ugettext_lazy as _
 from django.utils.translation import ungettext_lazy
 from keystoneclient import exceptions as keystone_exceptions
 
+
+from horizon import exceptions
 from horizon import tables
 from horizon.utils import filters
 
@@ -71,7 +78,10 @@ class MigrateInstance(policy.PolicyTargetMixin, tables.BatchAction):
                 and not project_tables.is_deleting(instance))
 
     def action(self, request, obj_id):
-        api.nova.server_migrate(request, obj_id)
+        try:
+            api.nova.server_migrate(request, obj_id)
+        except Exception as ex:
+            exceptions.handle(request, ex.message)
 
 
 class LiveMigrateInstance(policy.PolicyTargetMixin,
@@ -188,6 +198,7 @@ class AdminInstancesTable(tables.DataTable):
         verbose_name = _("Instances")
         status_columns = ["status", "task"]
         table_actions = (project_tables.DeleteInstance,
+                         project_tables.InstancesLimitAction,
                          AdminInstanceFilterAction)
         row_class = AdminUpdateRow
         row_actions = (project_tables.ConfirmResize,
@@ -203,6 +214,7 @@ class AdminInstancesTable(tables.DataTable):
                        LiveMigrateInstance,
                        project_tables.SoftRebootInstance,
                        project_tables.RebootInstance,
+                       project_tables.RebuildInstance,
                        project_tables.DeleteInstance)
 
 

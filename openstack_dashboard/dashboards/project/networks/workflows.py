@@ -11,7 +11,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+#
+# Copyright (c) 2013-2017 Wind River Systems, Inc.
+#
 
 import logging
 
@@ -29,6 +31,8 @@ from openstack_dashboard import api
 from openstack_dashboard.dashboards.project.networks.subnets import utils
 from openstack_dashboard import policy
 
+MIN_VLAN_TAG = 1
+MAX_VLAN_TAG = 4094
 
 LOG = logging.getLogger(__name__)
 
@@ -42,6 +46,15 @@ class CreateNetworkInfoAction(workflows.Action):
         initial=True,
         required=False,
         help_text=_("The state to start the network in."))
+
+    qos = forms.ChoiceField(label=_("QoS Policy"), required=False)
+    vlan_transparent = forms.BooleanField(
+        label=_("VLAN Transparent"),
+        initial=False, required=False,
+        help_text=_("Request that this network be implemented on a provider "
+                    "network that supports passing VLAN tagged packets "
+                    "transparently."))
+
     shared = forms.BooleanField(label=_("Shared"), initial=False,
                                 required=False)
     with_subnet = forms.BooleanField(label=_("Create Subnet"),
@@ -62,6 +75,16 @@ class CreateNetworkInfoAction(workflows.Action):
     def __init__(self, request, *args, **kwargs):
         super(CreateNetworkInfoAction, self).__init__(request,
                                                       *args, **kwargs)
+        # QoS policy extension
+        if api.base.is_TiS_region(request):
+            qos_choices = [('', _("No Policy"))]
+            for qos in api.neutron.qos_list(request):
+                qos_choices.append((qos.id, qos.name_or_id))
+            self.fields['qos'].choices = qos_choices
+        else:
+            del self.fields['qos']
+            del self.fields['vlan_transparent']
+
         if not policy.check((("network", "create_network:shared"),), request):
             self.fields['shared'].widget = forms.HiddenInput()
 
@@ -74,7 +97,8 @@ class CreateNetworkInfoAction(workflows.Action):
 
 class CreateNetworkInfo(workflows.Step):
     action_class = CreateNetworkInfoAction
-    contributes = ("net_name", "admin_state", "with_subnet", "shared")
+    contributes = ("net_name", "admin_state", "qos", "net_profile_id",
+                   "vlan_transparent", "with_subnet", "shared")
 
 
 class CreateSubnetInfoAction(workflows.Action):
@@ -126,7 +150,11 @@ class CreateSubnetInfoAction(workflows.Action):
                              'data-source-manual': _("Network Address"),
                          }),
                          help_text=_("Network address in CIDR format "
-                                     "(e.g. 192.168.0.0/24, 2001:DB8::/48)"),
+                                     "(e.g. IPv4 address mode 192.168.0.0/24, "
+                                     "IPv6 address mode 2001:DB8::/48, "
+                                     "2001:DB8::/64). Note: IPv6 subnet "
+                                     "prefix is required to be /64 "
+                                     "when DHCP is enabled."),
                          version=forms.IPv4 | forms.IPv6,
                          mask=True)
     ip_version = forms.ChoiceField(choices=[(4, 'IPv4'), (6, 'IPv6')],
@@ -149,7 +177,8 @@ class CreateSubnetInfoAction(workflows.Action):
                     "The default value is the first IP of the "
                     "network address "
                     "(e.g. 192.168.0.1 for 192.168.0.0/24, "
-                    "2001:DB8::1 for 2001:DB8::/48). "
+                    "2001:DB8::1 for 2001:DB8::/48, "
+                    "2001:DB8::/64). "
                     "If you use the default, leave blank. "
                     "If you do not want to use a gateway, "
                     "check 'Disable Gateway' below."),
@@ -354,7 +383,7 @@ class CreateSubnetDetailAction(workflows.Action):
 
     class Meta(object):
         name = _("Subnet Details")
-        help_text = _('Specify additional attributes for the subnet.')
+        help_text = _('You can specify additional attributes for the subnet.')
 
     def __init__(self, request, context, *args, **kwargs):
         super(CreateSubnetDetailAction, self).__init__(request, context,
@@ -362,6 +391,10 @@ class CreateSubnetDetailAction(workflows.Action):
         if not getattr(settings, 'OPENSTACK_NEUTRON_NETWORK',
                        {}).get('enable_ipv6', True):
             self.fields['ipv6_modes'].widget = forms.HiddenInput()
+
+        if not api.base.is_TiS_region(request):
+            self.help_text = _('You can specify additional attributes '
+                               'for the subnet.')
 
     def populate_ipv6_modes_choices(self, request, context):
         return [(value, _("%s (Default)") % label)
@@ -463,6 +496,18 @@ class CreateNetwork(workflows.Workflow):
             params = {'name': data['net_name'],
                       'admin_state_up': data['admin_state'],
                       'shared': data['shared']}
+
+            if api.neutron.is_extension_supported(request, 'vlan-transparent'):
+                if 'vlan_transparent' in data:
+                    params['vlan_transparent'] = data['vlan_transparent']
+
+            # QoS extension
+            if api.base.is_TiS_region(request):
+                if data.get('qos', None):
+                    params['wrs-tm:qos'] = data.get('qos')
+                else:
+                    params['wrs-tm:qos'] = None
+
             network = api.neutron.network_create(request, **params)
             self.context['net_id'] = network.id
             LOG.debug('Network "%s" was successfully created.',
@@ -551,7 +596,8 @@ class CreateNetwork(workflows.Workflow):
             else:
                 redirect = self.get_failure_url()
             exceptions.handle(request,
-                              msg % {"sub": data['cidr'], "net": network_name,
+                              msg % {"sub": data['cidr'],
+                                     "net": network_name or network_id,
                                      "reason": e},
                               redirect=redirect)
             return False

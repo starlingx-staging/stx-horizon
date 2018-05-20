@@ -11,6 +11,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2013-2017 Wind River Systems, Inc.
+#
 
 from collections import OrderedDict
 
@@ -38,6 +41,8 @@ from openstack_dashboard.dashboards.admin.networks.subnets \
     import tables as subnets_tables
 from openstack_dashboard.dashboards.admin.networks \
     import tables as networks_tables
+from openstack_dashboard.dashboards.admin.networks \
+    import tabs as project_tabs
 from openstack_dashboard.dashboards.admin.networks import workflows
 from openstack_dashboard.dashboards.project.networks import views \
     as project_view
@@ -124,6 +129,11 @@ class IndexView(tables.DataTableView):
         return filters
 
 
+class IndexViewTabbed(tabs.TabbedTableView):
+    tab_group_class = project_tabs.NetworkTabs
+    template_name = 'admin/networks/tabs.html'
+
+
 class CreateView(project_view.CreateView):
     workflow_class = workflows.CreateNetwork
 
@@ -141,7 +151,11 @@ class UpdateView(user_views.UpdateView):
                 'name': network['name'],
                 'admin_state': network['admin_state_up'],
                 'shared': network['shared'],
-                'external': network['router__external']}
+                'external': network['router__external'],
+                'providernet': network.get('provider__physical_network'),
+                'providernet_type': network.get('provider__network_type'),
+                'segmentation_id': network.get('provider__segmentation_id'),
+                'qos': getattr(network, 'wrs-tm__qos', None)}
 
 
 class NetworkDetailsTabs(tabs.DetailTabsGroup):
@@ -162,6 +176,9 @@ class DetailView(tabs.TabbedTableView):
             network_id = self.kwargs['network_id']
             network = api.neutron.network_get(self.request, network_id)
             network.set_id_as_name_if_empty(length=0)
+            if hasattr(network, 'wrs-tm:qos'):
+                network.qos_policy = api.neutron.qos_get(
+                    self.request, getattr(network, 'wrs-tm:qos'))
         except Exception:
             network = None
             msg = _('Unable to retrieve details for network "%s".') \

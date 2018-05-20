@@ -5,3 +5,8 @@
   <h3>{% trans "Description:" %}</h3>
   <p>{% trans "You may update the editable properties of your network here." %}</p>
 {% endblock %}
+
+{% block modal-footer %}
+  <a class="btn btn-default cancel" data-dismiss="modal">{% trans "Cancel" %}</a>
+  <input class="btn btn-primary pull-right" type="submit" value="{% trans "Save Changes" %}"/>
+{% endblock %}

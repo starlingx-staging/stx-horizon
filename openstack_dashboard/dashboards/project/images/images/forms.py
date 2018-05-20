@@ -15,10 +15,15 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2015 Wind River Systems, Inc.
+#
 
 """
 Views for managing images.
 """
+
+import urllib2
 
 from django.conf import settings
 from django.core import validators
@@ -83,8 +88,7 @@ def create_image_metadata(data):
     # are handled has changed: in V2 empty metadata is kept in image
     # properties, while in V1 they were omitted. Skip empty description (which
     # is metadata) to keep the same behavior between V1 and V2
-    if data.get('description'):
-        properties['description'] = data['description']
+    properties['description'] = data['description']
     if data.get('kernel'):
         properties['kernel_id'] = data['kernel']
     if data.get('ramdisk'):
@@ -309,7 +313,6 @@ class CreateImageForm(CreateParent):
 
     def handle(self, request, data):
         meta = create_image_metadata(data)
-
         # Add image source file or URL to metadata
         if (api.glance.get_image_upload_mode() != 'off' and
                 policy.check((("image", "upload_image"),), request) and
@@ -317,6 +320,16 @@ class CreateImageForm(CreateParent):
             meta['data'] = data['image_file']
         elif data.get('is_copying'):
             meta['copy_from'] = data['image_url']
+
+            try:
+                urllib2.urlopen(data['image_url'])
+            except Exception:
+                msg = _('Unable to create new image: '
+                        'Invalid url: %s ') % data['image_url']
+
+                messages.error(request, msg)
+
+                return False
         else:
             meta['location'] = data['image_url']
 

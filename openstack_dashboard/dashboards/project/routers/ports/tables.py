@@ -29,13 +29,17 @@ from openstack_dashboard import policy
 LOG = logging.getLogger(__name__)
 
 
+DEVICE_OWNERS = {
+    'network:router_gateway': _('External Gateway'),
+    'network:router_interface': _('Internal Interface'),
+    'network:router_interface_distributed': _('Internal Interface'),
+    'network:router_ha_interface': _('Internal Interface'),
+    'network:router_centralized_snat': _('Centralized Interface'),
+}
+
+
 def get_device_owner(port):
-    if port['device_owner'] == 'network:router_gateway':
-        return _('External Gateway')
-    elif port['device_owner'] == 'network:router_interface':
-        return _('Internal Interface')
-    else:
-        return ' '
+    return DEVICE_OWNERS.get(port['device_owner'], ' ')
 
 
 class AddInterface(policy.PolicyTargetMixin, tables.LinkAction):

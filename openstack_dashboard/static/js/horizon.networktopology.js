@@ -190,6 +190,7 @@ horizon.network_topology = {
 
   // Get the json data about the current deployment
   retrieve_network_info: function(force_start) {
+    horizon.refresh.datetime();
     var self = this;
     self.data_loaded = true;
     self.load_topology(horizon.networktopologyloader.model);

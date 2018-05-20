@@ -290,7 +290,7 @@ class Servers(generic.View):
     _optional_create = [
         'block_device_mapping', 'block_device_mapping_v2', 'nics', 'meta',
         'availability_zone', 'instance_count', 'admin_pass', 'disk_config',
-        'config_drive', 'scheduler_hints'
+        'config_drive', 'scheduler_hints', 'min_inst_count'
     ]
 
     @rest_utils.ajax()
@@ -328,7 +328,7 @@ class Servers(generic.View):
         Other parameters are accepted as per the underlying novaclient:
         "block_device_mapping", "block_device_mapping_v2", "nics", "meta",
         "availability_zone", "instance_count", "admin_pass", "disk_config",
-        "config_drive", "scheduler_hints"
+        "config_drive", "scheduler_hints", "min_inst_count"
 
         This returns the new server object on success.
         """
@@ -348,7 +348,8 @@ class Servers(generic.View):
         kw = {}
         for name in self._optional_create:
             if name in request.DATA:
-                kw[name] = request.DATA[name]
+                data = request.DATA[name]
+                kw[name] = data
 
         new = api.nova.server_create(*args, **kw)
         return rest_utils.CreatedResponse(

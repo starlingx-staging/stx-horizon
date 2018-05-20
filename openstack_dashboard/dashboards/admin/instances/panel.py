@@ -27,3 +27,15 @@ class Instances(horizon.Panel):
     permissions = ('openstack.services.compute',)
     policy_rules = ((("compute", "context_is_admin"),
                      ("compute", "os_compute_api:servers:detail")),)
+
+    def allowed(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return super(Instances, self).allowed(context)
+
+    def nav(self, context):
+        if context['request'].user.services_region == 'SystemController':
+            return False
+        else:
+            return True

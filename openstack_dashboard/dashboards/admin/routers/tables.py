@@ -27,6 +27,14 @@ class EditRouter(r_tables.EditRouter):
     url = "horizon:admin:routers:update"
 
 
+class SetGateway(r_tables.SetGateway):
+    url = "horizon:admin:routers:setgateway"
+
+
+class ClearGateway(r_tables.ClearGateway):
+    redirect_url = "horizon:admin:routers:index"
+
+
 class UpdateRow(tables.Row):
     ajax = True
 
@@ -41,11 +49,19 @@ class AdminRoutersFilterAction(r_tables.RoutersFilterAction):
         ('project', _("Project ="), True),)
 
 
+def get_router_hostname(router):
+    if getattr(router, 'host', None):
+        return router.host
+    return "-"
+
+
 class RoutersTable(r_tables.RoutersTable):
     tenant = tables.Column("tenant_name", verbose_name=_("Project"))
     name = tables.WrappingColumn("name",
                                  verbose_name=_("Name"),
                                  link="horizon:admin:routers:detail")
+    host = tables.Column(get_router_hostname,
+                         verbose_name=_("Host"))
 
     class Meta(object):
         name = "routers"
@@ -53,6 +69,6 @@ class RoutersTable(r_tables.RoutersTable):
         status_columns = ["status"]
         row_class = UpdateRow
         table_actions = (DeleteRouter, AdminRoutersFilterAction)
-        row_actions = (EditRouter, DeleteRouter,)
+        row_actions = (SetGateway, ClearGateway, EditRouter, DeleteRouter,)
         columns = ('tenant', 'name', 'status', 'distributed', 'ext_net',
-                   'ha', 'admin_state',)
+                   'ha', 'admin_state', 'host')

@@ -51,6 +51,8 @@
       <dd>{{ instance.full_flavor.ram|mb_float_format }}</dd>
       <dt>{% trans "VCPUs" %}</dt>
       <dd>{{ instance.full_flavor.vcpus }} {% trans "VCPU" %}</dd>
+      <dt>{% trans "VCPUs (min/cur/max)" %}</dt>
+      <dd>{{ instance.vcpus_min_cur_max }}</dd>
       <dt>{% trans "Disk" %}</dt>
       <dd>{{ instance.full_flavor.disk }}{% trans "GB" %}</dd>
       {% if instance.full_flavor.ephemeral %}
@@ -63,16 +65,50 @@
     {% endif %}
   </dl>
 
+  {% if instance.server_group %}
+    <h4>{% trans "Server Group" %}</h4>
+    <hr class="header_rule">
+    <dl class="dl-horizontal">
+      <dd>{{ instance.server_group }}</dd>
+    </dl>
+  {% endif %}
+
+  <h4>{% trans "Network Interfaces (NICs)" %}</h4>
+  <hr class="header_rule">
+  <dl>
+    {% for nic in instance.nics %}
+      {% for name, value in nic.items %}
+        <dt>{{ name }}</dt>
+        <dd>
+            <dl class="dl-horizontal">
+                <dt>{% trans "Port ID" %}</dt>
+                <dd>{{ value.port_id }}</dd>
+                <dt>{% trans "Network" %}</dt>
+                <dd>{{ value.network }}</dd>
+                <dt>{% trans "MTU" %}</dt>
+                <dd>{{ value.mtu }}</dd>
+                <dt>{% trans "MAC Address" %}</dt>
+                <dd>{{ value.mac_address }}</dd>
+                <dt>{% trans "Virtual PCI Address" %}</dt>
+                <dd>{{ value.vif_pci_address }}</dd>
+            </dl>
+        </dd>
+        {% endfor %}
+    {% endfor %}
+  </dl>
+
     <h4>{% trans "IP Addresses" %}</h4>
     <hr class="header_rule">
     <dl class="dl-horizontal">
-      {% for network, ip_list in instance.addresses.items %}
+      {% for entry in instance.addresses %}
+      {% for network, ip_list in entry.items %}
         <dt>{{ network|title }}</dt>
         <dd>
           {% for ip in ip_list %}
             {% if not forloop.last %}{{ ip.addr }},&nbsp;{% else %}{{ ip.addr }}{% endif %}
           {% endfor %}
         </dd>
+      {% endfor %}
       {% endfor %}
     </dl>
 
