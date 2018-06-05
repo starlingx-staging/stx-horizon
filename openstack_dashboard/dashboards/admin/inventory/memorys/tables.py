@@ -62,6 +62,12 @@ def get_processor_memory(memory):
     return template.loader.render_to_string(template_name, context)
 
 
+def get_vswitch_hugepages(memory):
+    template_name = 'admin/inventory/memorys/_vswitchfunction_hugepages.html'
+    context = {"memory": memory}
+    return template.loader.render_to_string(template_name, context)
+
+
 def get_vm_hugepages(memory):
     template_name = 'admin/inventory/memorys/_vmfunction_hugepages.html'
     context = {"memory": memory}
@@ -74,6 +80,9 @@ class MemorysTable(tables.DataTable):
 
     memory = tables.Column(get_processor_memory,
                            verbose_name=_('Memory'))
+
+    vswitch_huge = tables.Column(get_vswitch_hugepages,
+                                 verbose_name=_('VSwitch Huge Pages'))
 
     vm_huge = tables.Column(get_vm_hugepages,
                             verbose_name=_('VM Pages'))
