@@ -34,24 +34,21 @@ Keystone/Nova/Glance/Swift et. al.
 from openstack_dashboard.api import base
 from openstack_dashboard.api import ceilometer
 from openstack_dashboard.api import cinder
-from openstack_dashboard.api import dc_manager  # noqa
 from openstack_dashboard.api import glance
-from openstack_dashboard.api import heat
 from openstack_dashboard.api import iservice
+from openstack_dashboard.api import heat
 from openstack_dashboard.api import keystone
 from openstack_dashboard.api import network
 from openstack_dashboard.api import neutron
 from openstack_dashboard.api import nova
-from openstack_dashboard.api import patch
 from openstack_dashboard.api import swift
-from openstack_dashboard.api import sysinv
-from openstack_dashboard.api import vim
 
 
 __all__ = [
     "base",
     "cinder",
     "glance",
+    "iservice",
     "heat",
     "keystone",
     "network",
@@ -59,9 +56,4 @@ __all__ = [
     "nova",
     "swift",
     "ceilometer",
-    "sysinv",
-    "dcmanager",
-    "iservice",
-    "patch",
-    "vim",
 ]
