@@ -41,9 +41,6 @@ from novaclient.v2 import instance_action as nova_instance_action
 from novaclient.v2 import list_extensions as nova_list_extensions
 from novaclient.v2 import servers as nova_servers
 
-from novaclient.v2 import wrs_pci
-from novaclient.v2 import wrs_providernets
-
 from horizon import exceptions
 from horizon import exceptions as horizon_exceptions
 from horizon.utils import functions as utils
