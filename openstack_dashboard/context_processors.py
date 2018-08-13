@@ -128,7 +128,7 @@ def openstack(request):
     context['JS_CATALOG'] = get_js_catalog(conf)
 
     if (request.user.is_authenticated() and request.user.is_superuser and
-            api.base.is_TiS_region(request)):
+            api.base.is_service_enabled(request, 'platform')):
 
         cur_time = long(time())
         delta_time = cur_time - cache_update_time
