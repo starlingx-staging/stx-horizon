@@ -76,7 +76,7 @@ class CreateSubnetDetailAction(network_workflows.CreateSubnetDetailAction):
         super(CreateSubnetDetailAction, self).__init__(
             request, context, *args, **kwargs)
 
-        if api.base.is_TiS_region(request):
+        if api.base.is_stx_region(request):
             network = \
                 api.neutron.network_get(request, context['network_id'], False)
             provider_type = network.get('provider:network_type')
@@ -113,7 +113,7 @@ class UpdateSubnetDetailAction(project_workflows.UpdateSubnetDetailAction):
     def __init__(self, request, context, *args, **kwargs):
         super(UpdateSubnetDetailAction, self).__init__(
             request, context, *args, **kwargs)
-        if not api.base.is_TiS_region(request):
+        if not api.base.is_stx_region(request):
             del self.fields['provider_type']
             del self.fields['provider_network']
             del self.fields['provider_id']
