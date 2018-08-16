@@ -60,7 +60,7 @@ class PortForwardingTab(tabs.TableTab):
         return self.tab_group.kwargs['portforwardings']
 
     def allowed(self, request):
-        return api.base.is_TiS_region(request)
+        return api.base.is_stx_region(request)
 
 
 class RouterDetailTabs(tabs.DetailTabsGroup):

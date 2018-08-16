@@ -137,9 +137,9 @@ class CreateImageFormTests(test.ResetImageAPIVersionMixin, test.TestCase):
 
 
 class UpdateImageFormTests(test.ResetImageAPIVersionMixin, test.TestCase):
-    @test.create_stubs({api.base: ('is_TiS_region',)})
+    @test.create_stubs({api.base: ('is_stx_region',)})
     def test_is_format_field_editable(self):
-        api.base.is_TiS_region({}).AndReturn(False)
+        api.base.is_stx_region({}).AndReturn(False)
         self.mox.ReplayAll()
 
         form = forms.UpdateImageForm({})

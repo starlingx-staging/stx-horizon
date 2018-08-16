@@ -284,7 +284,7 @@ class CreateNetwork(forms.SelfHandlingForm):
             else:
                 self.fields['network_type'].choices = network_type_choices
 
-            if api.base.is_TiS_region(request):
+            if api.base.is_stx_region(request):
                 # Titanium Cloud networktype field choices
                 network_type_choices = [('', _("Select a provider "
                                                "network type"))]
@@ -311,7 +311,7 @@ class CreateNetwork(forms.SelfHandlingForm):
         else:
             self._hide_provider_network_type()
 
-        if api.base.is_TiS_region(request):
+        if api.base.is_stx_region(request):
             # QoS policy extension
             qos_choices = [('', _("No Policy"))]
             for qos in api.neutron.qos_list(request):
@@ -352,7 +352,7 @@ class CreateNetwork(forms.SelfHandlingForm):
                       'router:external': data['external']}
 
             # QoS extension
-            if api.base.is_TiS_region(request):
+            if api.base.is_stx_region(request):
                 if data.get('qos', None):
                     params['wrs-tm:qos'] = data.get('qos')
                 else:
@@ -365,7 +365,7 @@ class CreateNetwork(forms.SelfHandlingForm):
             if api.neutron.is_extension_supported(request, 'provider'):
                 network_type = data['network_type']
                 params['provider:network_type'] = network_type
-                if not api.base.is_TiS_region(request):
+                if not api.base.is_stx_region(request):
                     params['provider:physical_network'] = \
                         data['physical_network']
                 elif network_type == "vlan":
@@ -403,7 +403,7 @@ class CreateNetwork(forms.SelfHandlingForm):
     def _clean_physical_network(self, data):
         network_type = data.get('network_type')
 
-        if api.base.is_TiS_region(self.request):
+        if api.base.is_stx_region(self.request):
             if network_type == "vlan":
                 if not data.get('physical_network_vlan'):
                     msg = "Physical Network is required for " \
@@ -485,7 +485,7 @@ class UpdateNetwork(forms.SelfHandlingForm):
     def __init__(self, request, *args, **kwargs):
         super(UpdateNetwork, self).__init__(request, *args, **kwargs)
 
-        if api.base.is_TiS_region(self.request):
+        if api.base.is_stx_region(self.request):
             # QoS policy extension
             qos_choices = [('', _("No Policy"))]
             for qos in api.neutron.qos_list(request):
@@ -506,7 +506,7 @@ class UpdateNetwork(forms.SelfHandlingForm):
                       'router:external': data['external']}
 
             # QoS extension
-            if api.base.is_TiS_region(request):
+            if api.base.is_stx_region(request):
                 if data.get('qos', None):
                     params['wrs-tm:qos'] = data.get('qos')
                 else:

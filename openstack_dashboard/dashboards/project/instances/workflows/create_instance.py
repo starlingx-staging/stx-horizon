@@ -909,7 +909,7 @@ class SetAdvancedAction(workflows.Action):
         super(SetAdvancedAction, self).__init__(request, context,
                                                 *args, **kwargs)
 
-        if not base.is_TiS_region(request):
+        if not base.is_stx_region(request):
             del self.fields['min_count']
 
         try:
