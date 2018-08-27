@@ -33,7 +33,6 @@ Keystone/Nova/Glance/Swift et. al.
 """
 from openstack_dashboard.api import base
 from openstack_dashboard.api import ceilometer
-from openstack_dashboard.api import ceph
 from openstack_dashboard.api import cinder
 from openstack_dashboard.api import glance
 from openstack_dashboard.api import iservice
@@ -47,8 +46,6 @@ from openstack_dashboard.api import swift
 
 __all__ = [
     "base",
-    "ceilometer",
-    "ceph",
     "cinder",
     "glance",
     "iservice",
