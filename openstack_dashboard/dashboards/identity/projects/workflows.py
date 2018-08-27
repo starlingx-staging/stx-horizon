@@ -483,13 +483,13 @@ class CreateProject(CommonQuotaWorkflow):
 
     def __init__(self, request=None, context_seed=None, entry_point=None,
                  *args, **kwargs):
-        if api.base.is_stx_region(request):
+        if api.base.is_TiS_region(request):
             self.default_steps = (CreateProjectInfo,
                                   UpdateProjectMembers,
                                   CreateProjectQuota,
                                   UpdateProjectSettings)
         if PROJECT_GROUP_ENABLED:
-            if api.base.is_stx_region(request):
+            if api.base.is_TiS_region(request):
                 self.default_steps = (CreateProjectInfo,
                                       UpdateProjectMembers,
                                       UpdateProjectGroups,
@@ -622,7 +622,7 @@ class CreateProject(CommonQuotaWorkflow):
             self._update_project_quota(request, data, project_id)
 
         # Update the project settings.
-        if api.base.is_stx_region(request):
+        if api.base.is_TiS_region(request):
             try:
                 neutron_data = dict([(key, data[key]) for key in
                                      project_settings.NEUTRON_SETTING_FIELDS])
@@ -720,13 +720,13 @@ class UpdateProject(CommonQuotaWorkflow):
 
     def __init__(self, request=None, context_seed=None, entry_point=None,
                  *args, **kwargs):
-        if api.base.is_stx_region(request):
+        if api.base.is_TiS_region(request):
             self.default_steps = (UpdateProjectInfo,
                                   UpdateProjectMembers,
                                   UpdateProjectQuota,
                                   UpdateProjectSettings)
         if PROJECT_GROUP_ENABLED:
-            if api.base.is_stx_region(request):
+            if api.base.is_TiS_region(request):
                 self.default_steps = (UpdateProjectInfo,
                                       UpdateProjectMembers,
                                       UpdateProjectGroups,
@@ -1033,7 +1033,7 @@ class UpdateProject(CommonQuotaWorkflow):
                 return False
 
         # Update the project settings.
-        if api.base.is_stx_region(request):
+        if api.base.is_TiS_region(request):
             try:
                 neutron_data = dict([(key, data[key]) for key in
                                      project_settings.NEUTRON_SETTING_FIELDS])
