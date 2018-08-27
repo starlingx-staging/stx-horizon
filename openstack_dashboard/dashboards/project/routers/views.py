@@ -185,7 +185,7 @@ class DetailView(tabs.TabbedTableView):
     def get_tabs(self, request, *args, **kwargs):
         router = self._get_data()
         ports = self._get_ports()
-        if api.base.is_stx_region(request):
+        if api.base.is_TiS_region(request):
             portforwardings = self._get_portforwardings()
         else:
             portforwardings = None

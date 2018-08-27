@@ -247,7 +247,7 @@ class CeilometerConfigTab(tabs.TableTab):
     def allowed(self, request):
         if request.user.services_region == 'SystemController':
             return False
-        return api.base.is_stx_region(request)
+        return api.base.is_TiS_region(request)
 
 
 class ConfigTabs(tabs.TabGroup):
