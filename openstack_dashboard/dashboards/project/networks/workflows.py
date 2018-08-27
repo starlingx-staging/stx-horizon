@@ -76,7 +76,7 @@ class CreateNetworkInfoAction(workflows.Action):
         super(CreateNetworkInfoAction, self).__init__(request,
                                                       *args, **kwargs)
         # QoS policy extension
-        if api.base.is_stx_region(request):
+        if api.base.is_TiS_region(request):
             qos_choices = [('', _("No Policy"))]
             for qos in api.neutron.qos_list(request):
                 qos_choices.append((qos.id, qos.name_or_id))
@@ -392,7 +392,7 @@ class CreateSubnetDetailAction(workflows.Action):
                        {}).get('enable_ipv6', True):
             self.fields['ipv6_modes'].widget = forms.HiddenInput()
 
-        if not api.base.is_stx_region(request):
+        if not api.base.is_TiS_region(request):
             self.help_text = _('You can specify additional attributes '
                                'for the subnet.')
 
@@ -502,7 +502,7 @@ class CreateNetwork(workflows.Workflow):
                     params['vlan_transparent'] = data['vlan_transparent']
 
             # QoS extension
-            if api.base.is_stx_region(request):
+            if api.base.is_TiS_region(request):
                 if data.get('qos', None):
                     params['wrs-tm:qos'] = data.get('qos')
                 else:

@@ -243,7 +243,7 @@ class ControllerServicesTab(tabs.TableTab):
         return services
 
     def allowed(self, request):
-        return base.is_stx_region(request)
+        return base.is_TiS_region(request)
 
 
 class NetworkAgentsTab(tabs.TableTab):
