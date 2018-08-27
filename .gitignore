@@ -47,5 +47,3 @@ tags
 ghostdriver.log
 .testrepository
 .idea
-
-openstack_dashboard/enabled/*starlingx*

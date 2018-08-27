@@ -16,6 +16,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from cgtsclient import exc as cgtsclient
 from cinderclient import exceptions as cinderclient
 from glanceclient.common import exceptions as glanceclient
 from heatclient import exc as heatclient
@@ -33,6 +34,7 @@ UNAUTHORIZED = (
     glanceclient.Unauthorized,
     neutronclient.Unauthorized,
     heatclient.HTTPUnauthorized,
+    cgtsclient.HTTPUnauthorized,
 )
 
 
@@ -43,6 +45,7 @@ NOT_FOUND = (
     glanceclient.NotFound,
     neutronclient.NotFound,
     heatclient.HTTPNotFound,
+    cgtsclient.HTTPNotFound,
 )
 
 
@@ -65,4 +68,7 @@ RECOVERABLE = (
     heatclient.HTTPForbidden,
     heatclient.HTTPException,
     requests.RequestException,
+    cgtsclient.HTTPBadRequest,
+    cgtsclient.HTTPConflict,
+    cgtsclient.CommunicationError,
 )
