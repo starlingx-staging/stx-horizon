@@ -89,7 +89,7 @@ class Service(base.APIDictWrapper):
         super(Service, self).__init__(service, *args, **kwargs)
         self.public_url = base.get_url_for_service(service, region,
                                                    'publicURL')
-        self.url = base.get_url_for_service(service, region, 'internalURL')
+        self.url = base.get_url_for_service(service, region, 'publicURL')
         if self.url:
             self.host = urlparse.urlparse(self.url).hostname
         else:
@@ -168,7 +168,7 @@ def keystoneclient(request, admin=False):
     if admin:
         if not policy.check((("identity", "admin_required"),), request):
             raise exceptions.NotAuthorized
-        endpoint_type = 'adminURL'
+        endpoint_type = 'publicURL'
     else:
         endpoint_type = getattr(settings,
                                 'OPENSTACK_ENDPOINT_TYPE',
@@ -542,7 +542,7 @@ def user_verify_admin_password(request, admin_password):
     # verify if it's correct.
     client = keystone_client_v2 if VERSIONS.active < 3 else keystone_client_v3
     try:
-        endpoint = _get_endpoint_url(request, 'internalURL')
+        endpoint = _get_endpoint_url(request, 'publicURL')
         insecure = getattr(settings, 'OPENSTACK_SSL_NO_VERIFY', False)
         cacert = getattr(settings, 'OPENSTACK_SSL_CACERT', None)
         client.Client(
