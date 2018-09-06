@@ -329,12 +329,6 @@ def get_url_for_service(service, region, endpoint_type):
     return None
 
 
-def is_TiS_region(request):
-    if not is_service_enabled(request, 'platform'):
-        return False
-    return True
-
-
 def url_for(request, service_type, endpoint_type=None, region=None):
     endpoint_type = endpoint_type or getattr(settings,
                                              'OPENSTACK_ENDPOINT_TYPE',
