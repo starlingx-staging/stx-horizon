@@ -389,6 +389,6 @@ class ImagesTable(tables.DataTable):
         if api.cinder.is_volume_service_enabled(request):
             volume_types = api.cinder.volume_type_list(request)
             if all('ceph' not in vtype.name for vtype in volume_types) or \
-                    not base.is_TiS_region(request):
+                    not base.is_stx_region(request):
                 if 'cache' in self.columns:
                     del self.columns['cache']
