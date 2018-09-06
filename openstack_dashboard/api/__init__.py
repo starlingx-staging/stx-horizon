@@ -58,5 +58,4 @@ __all__ = [
     "neutron",
     "nova",
     "swift",
-    "ceilometer",
 ]

@@ -350,7 +350,7 @@ class ToggleShelve(tables.BatchAction):
         )
 
     def allowed(self, request, instance=None):
-        if api.base.is_TiS_region(request):
+        if api.base.is_stx_region(request):
             return False
         if not api.nova.extension_supported('Shelve', request):
             return False
@@ -1003,7 +1003,7 @@ class AttachInterface(policy.PolicyTargetMixin, tables.LinkAction):
     policy_rules = (("compute", "os_compute_api:os-attach-interfaces"),)
 
     def allowed(self, request, instance):
-        if api.base.is_TiS_region(request):
+        if api.base.is_stx_region(request):
             return False
         return ((instance.status in ACTIVE_STATES
                  or instance.status == 'SHUTOFF')
@@ -1024,7 +1024,7 @@ class DetachInterface(policy.PolicyTargetMixin, tables.LinkAction):
     url = "horizon:project:instances:detach_interface"
 
     def allowed(self, request, instance):
-        if api.base.is_TiS_region(request):
+        if api.base.is_stx_region(request):
             return False
         if not api.base.is_service_enabled(request, 'network'):
             return False
