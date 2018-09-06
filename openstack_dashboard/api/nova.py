@@ -529,7 +529,7 @@ def flavor_get_extras(request, flavor_id, raw=False, flavor=None):
 def flavor_extra_delete(request, flavor_id, keys):
     """Unset the flavor extra spec keys."""
     flavor = novaclient(request).flavors.get(flavor_id)
-    return flavor.unset_keys(keys, base.is_TiS_region(request))
+    return flavor.unset_keys(keys, base.is_stx_region(request))
 
 
 @profiler.trace
