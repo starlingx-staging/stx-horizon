@@ -17,7 +17,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 #
-# Copyright (c) 2013-2017 Wind River Systems, Inc.
+# Copyright (c) 2013-2018 Wind River Systems, Inc.
 #
 
 from __future__ import absolute_import
@@ -1685,6 +1685,19 @@ def get_feature_permission(request, feature, operation=None):
 
     # If all checks are passed, now a given feature is allowed.
     return True
+
+
+def provider_network_type_list(request, **params):
+    providernet_types = neutronclient(request).list_providernet_types(
+        **params).get(
+            'providernet_types')
+    return [ProviderNetworkType(t) for t in providernet_types]
+
+
+def provider_network_list(request, **params):
+    providernets = neutronclient(request).list_providernets(**params).get(
+        'providernets')
+    return [ProviderNetwork(n) for n in providernets]
 
 
 def qos_list(request):
