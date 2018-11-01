@@ -32,7 +32,6 @@ from horizon import workflows
 from openstack_dashboard import api
 from openstack_dashboard.api import keystone
 from openstack_dashboard import policy
-from openstack_dashboard import project_settings
 from openstack_dashboard import usage
 from openstack_dashboard.usage import quotas
 
@@ -213,19 +212,6 @@ class CreateProjectView(workflows.WorkflowView):
                 error_msg = _('Unable to retrieve default quota values.')
                 self.add_error_to_step(error_msg, 'create_quotas')
 
-        # get initial setting defaults
-        try:
-            setting_defaults = project_settings.get_default_setting_data(
-                self.request)
-
-            for setting in setting_defaults:
-                if setting.name in project_settings.SETTING_FIELDS:
-                    initial[setting.name] = setting.value
-
-        except Exception:
-            error_msg = _('Unable to retrieve default setting values.')
-            self.add_error_to_step(error_msg, 'update_settings')
-
         return initial
 
 
@@ -288,20 +274,6 @@ class UpdateProjectView(workflows.WorkflowView):
             exceptions.handle(self.request,
                               _('Unable to retrieve project details.'),
                               redirect=reverse(INDEX_URL))
-
-        # get initial setting defaults
-        try:
-            setting_defaults = project_settings.get_tenant_setting_data(
-                self.request,
-                tenant_id=project_id)
-
-            for setting in setting_defaults:
-                if setting.name in project_settings.SETTING_FIELDS:
-                    initial[setting.name] = setting.value
-
-        except Exception:
-            error_msg = _('Unable to retrieve project setting values.')
-            self.add_error_to_step(error_msg, 'update_settings')
 
         return initial
 
