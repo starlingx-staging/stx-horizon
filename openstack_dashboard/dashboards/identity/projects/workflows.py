@@ -37,7 +37,6 @@ from openstack_dashboard import api
 from openstack_dashboard.api import cinder
 from openstack_dashboard.api import keystone
 from openstack_dashboard.api import nova
-from openstack_dashboard import project_settings
 from openstack_dashboard.usage import quotas
 from openstack_dashboard.utils import identity
 
@@ -50,29 +49,6 @@ PROJECT_GROUP_ENABLED = keystone.VERSIONS.active >= 3
 PROJECT_USER_MEMBER_SLUG = "update_members"
 PROJECT_GROUP_MEMBER_SLUG = "update_group_members"
 COMMON_HORIZONTAL_TEMPLATE = "identity/projects/_common_horizontal_form.html"
-
-
-class UpdateProjectSettingsAction(workflows.Action):
-    # Neutron
-    mac_filtering = forms.BooleanField(label=_("Source MAC Filtering"),
-                                       initial=True, required=False)
-
-    def __init__(self, request, *args, **kwargs):
-        super(UpdateProjectSettingsAction, self).__init__(request,
-                                                          *args,
-                                                          **kwargs)
-
-    class Meta(object):
-        name = _("Settings")
-        slug = 'update_settings'
-        help_text = _("From here you can set default"
-                      " settings for the project.")
-
-
-class UpdateProjectSettings(workflows.Step):
-    action_class = UpdateProjectSettingsAction
-    depends_on = ("project_id",)
-    contributes = project_settings.SETTING_FIELDS
 
 
 class ProjectQuotaAction(workflows.Action):
@@ -486,20 +462,12 @@ class CreateProject(CommonQuotaWorkflow):
         if api.base.is_stx_region(request):
             self.default_steps = (CreateProjectInfo,
                                   UpdateProjectMembers,
-                                  CreateProjectQuota,
-                                  UpdateProjectSettings)
+                                  CreateProjectQuota)
         if PROJECT_GROUP_ENABLED:
-            if api.base.is_stx_region(request):
-                self.default_steps = (CreateProjectInfo,
-                                      UpdateProjectMembers,
-                                      UpdateProjectGroups,
-                                      CreateProjectQuota,
-                                      UpdateProjectSettings)
-            else:
-                self.default_steps = (CreateProjectInfo,
-                                      UpdateProjectMembers,
-                                      UpdateProjectGroups,
-                                      CreateProjectQuota)
+            self.default_steps = (CreateProjectInfo,
+                                  UpdateProjectMembers,
+                                  UpdateProjectGroups,
+                                  CreateProjectQuota)
         super(CreateProject, self).__init__(request=request,
                                             context_seed=context_seed,
                                             entry_point=entry_point,
@@ -621,18 +589,6 @@ class CreateProject(CommonQuotaWorkflow):
         if keystone.is_cloud_admin(request):
             self._update_project_quota(request, data, project_id)
 
-        # Update the project settings.
-        if api.base.is_stx_region(request):
-            try:
-                neutron_data = dict([(key, data[key]) for key in
-                                     project_settings.NEUTRON_SETTING_FIELDS])
-                api.neutron.tenant_setting_update(request,
-                                                  project_id,
-                                                  **neutron_data)
-            except Exception:
-                exceptions.handle(request,
-                                  _('Unable to set project settings.'))
-
         return True
 
 
@@ -723,20 +679,12 @@ class UpdateProject(CommonQuotaWorkflow):
         if api.base.is_stx_region(request):
             self.default_steps = (UpdateProjectInfo,
                                   UpdateProjectMembers,
-                                  UpdateProjectQuota,
-                                  UpdateProjectSettings)
+                                  UpdateProjectQuota)
         if PROJECT_GROUP_ENABLED:
-            if api.base.is_stx_region(request):
-                self.default_steps = (UpdateProjectInfo,
-                                      UpdateProjectMembers,
-                                      UpdateProjectGroups,
-                                      UpdateProjectQuota,
-                                      UpdateProjectSettings)
-            else:
-                self.default_steps = (UpdateProjectInfo,
-                                      UpdateProjectMembers,
-                                      UpdateProjectGroups,
-                                      UpdateProjectQuota)
+            self.default_steps = (UpdateProjectInfo,
+                                  UpdateProjectMembers,
+                                  UpdateProjectGroups,
+                                  UpdateProjectQuota)
         super(UpdateProject, self).__init__(request=request,
                                             context_seed=context_seed,
                                             entry_point=entry_point,
@@ -1031,20 +979,6 @@ class UpdateProject(CommonQuotaWorkflow):
             ret = self._update_project_quota(request, data, project_id)
             if not ret:
                 return False
-
-        # Update the project settings.
-        if api.base.is_stx_region(request):
-            try:
-                neutron_data = dict([(key, data[key]) for key in
-                                     project_settings.NEUTRON_SETTING_FIELDS])
-                api.neutron.tenant_setting_update(request,
-                                                  project_id,
-                                                  **neutron_data)
-            except Exception:
-                exceptions.handle(request,
-                                  _('Modified project information, members '
-                                    'and quotas, but unable to modify '
-                                    'project settings.'))
 
         return True
 

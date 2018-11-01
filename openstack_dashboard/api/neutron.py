@@ -1299,18 +1299,6 @@ def tenant_quota_update(request, tenant_id, **kwargs):
 
 
 @profiler.trace
-def tenant_setting_get(request, tenant_id):
-    tenant_settings = neutronclient(request).show_setting(tenant_id)['setting']
-    return [base.ProjectSetting(k, v) for k, v in tenant_settings.iteritems()]
-
-
-@profiler.trace
-def tenant_setting_update(request, tenant_id, **kwargs):
-    settings = {'setting': kwargs}
-    return neutronclient(request).update_setting(tenant_id, settings)
-
-
-@profiler.trace
 def agent_list(request, **params):
     agents = neutronclient(request).list_agents(**params)
     return [Agent(a) for a in agents['agents']]
@@ -1589,11 +1577,6 @@ def is_service_enabled(request, config_name, ext_name):
 def is_quotas_extension_supported(request):
     return (is_enabled_by_config('enable_quotas', False) and
             is_extension_supported(request, 'quotas'))
-
-
-@memoized
-def is_settings_extension_supported(request):
-    return is_extension_supported(request, 'settings')
 
 
 @memoized
