@@ -153,12 +153,8 @@ TEMPLATES = [
     },
 ]
 
-# Workaround for template loading of titanium theme
-if not os.path.exists('/opt/branding/applied'):
-    TEMPLATES[0]['DIRS'] = ['/usr/share/openstack-dashboard/'
-                            'openstack_dashboard/themes/titanium/templates',
-                            os.path.join(ROOT_PATH, 'templates'), ]
-elif os.path.exists('/opt/branding/applied/templates'):
+# Workaround for template loading of custom branding
+if os.path.exists('/opt/branding/applied/templates'):
     TEMPLATES[0]['DIRS'] = ['/opt/branding/applied/templates',
                             os.path.join(ROOT_PATH, 'templates'), ]
 
