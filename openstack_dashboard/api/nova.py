@@ -642,7 +642,7 @@ def server_reboot(request, instance_id, soft_reboot=False):
     hardness = nova_servers.REBOOT_HARD
     if soft_reboot:
         hardness = nova_servers.REBOOT_SOFT
-        novaclient(request).servers.reboot(instance_id, hardness)
+    novaclient(request).servers.reboot(instance_id, hardness)
 
 
 @profiler.trace
